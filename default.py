@@ -246,9 +246,7 @@ def listFile(nzbname):
             if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
                 filepath = os.path.join(folder, file)
                 if size == os.path.getsize(filepath):
-                    #
                     rar = True
-                    # progressDialog.close()
                     break
                 size = os.path.getsize(filepath)
         label = str(seconds) + " seconds"
@@ -259,14 +257,6 @@ def listFile(nzbname):
         time.sleep(2)
         
     movieFile = RarFile(filepath).namelist()
-    print movieFile
-    rarpath = filepath
-    filepath = filepath.replace(".","%2e")
-    filepath = filepath.replace("-","%2d")
-    filepath = filepath.replace(":","%3a")
-    filepath = filepath.replace("\\","%5c")
-    filepath = filepath.replace("/","%2f")
-    # TODO more replace 
     progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
     sab_nzo_id_history = ''
@@ -290,7 +280,7 @@ def listFile(nzbname):
     xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
     item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
     item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
-    url = (xurl + "&filepath=" + filepath + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
+    url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
                 "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
     item.setPath(url)
     isfolder = False
@@ -311,8 +301,6 @@ def list_incomplete(params):
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
     folder = INCOMPLETE_FOLDER + nzbname
-    # DEBUG
-    print folder
     if sab_nzo_id:
         progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'Waiting for first rar')
@@ -339,13 +327,6 @@ def list_incomplete(params):
     movieFile = RarFile(filepath).namelist()
     # DEBUG
     print movieFile
-    rarpath = filepath
-    filepath = filepath.replace(".","%2e")
-    filepath = filepath.replace("-","%2d")
-    filepath = filepath.replace(":","%3a")
-    filepath = filepath.replace("\\","%5c")
-    filepath = filepath.replace("/","%2f")
-    # TODO more replace 
     if sab_nzo_id:
         progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
         pause = SABNZBD.pause('',sab_nzo_id)
@@ -366,7 +347,7 @@ def list_incomplete(params):
     xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
     item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
     item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
-    url = (xurl + "&filepath=" + filepath + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
+    url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
                 "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
     item.setPath(url)
     isfolder = False
@@ -382,20 +363,16 @@ def list_incomplete(params):
 
 def playVideo(params):
     get = params.get
-    filepath = get("filepath")
     file = get("file")
     file = urllib.unquote_plus(file)
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
-    # DEBUG
-    print "PlayVideo filepath " + filepath + " file " + file + " folder " + folder
     movieFile = get("filename")
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
-        # if (("avi" in movieFile) or ("mkv" in movieFile)) and sab_nzo_id:
         if sab_nzo_id:
             end = ""
             if ".part01.rar" in file:
@@ -410,16 +387,15 @@ def playVideo(params):
                     if not os.path.exists(filename):
                         # make 0 byte file
                         open(filename,'w').close()
-                        print filename
         # lets play the movie
-        raruri = "rar://" + filepath + "/" + movieFile
+        filepath = os.path.join(folder, file)
+        raruri = "rar://" + rarpath_fixer(filepath) + "/" + movieFile
         item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
         item.setInfo(type="Video", infoLabels={ "Title": movieFile})
         item.setPath(raruri)
         xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         time.sleep(5)
         # if the item is in the queue we remove the temp files
-        # if (("avi" in movieFile) or ("mkv" in movieFile)) and sab_nzo_id:
         if sab_nzo_id:
             for i in range(10):
                 for y in range(10):
@@ -533,6 +509,14 @@ def load_xml(url):
     xml = response.read()
     response.close()
     return parseString(xml)
+
+def rarpath_fixer(filepath):
+    filepath = filepath.replace(".","%2e")
+    filepath = filepath.replace("-","%2d")
+    filepath = filepath.replace(":","%3a")
+    filepath = filepath.replace("\\","%5c")
+    filepath = filepath.replace("/","%2f")
+    return filepath
 
 def search(dialog_name):
     searchString = unikeyboard('', '' )
