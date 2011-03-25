@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.video.nzbs"
+       name="NZBS"
+       version="0.0.2"
+       provider-name="Popeye">
+  <requires>
+    <import addon="xbmc.python" version="1.0"/>
+  </requires>
+  <extension point="xbmc.python.pluginsource"
+            library="default.py">
+        <provides>video</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <platform>all</platform>
+    <summary>NZBS</summary>
+    <description>Downloads and streams NZB&apos;s from NZBS.org</description>
+    <disclaimer></disclaimer>
+  </extension>
+</addon>

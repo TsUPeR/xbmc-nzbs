@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<strings>
+    <!-- Plugin settings strings -->
+    <string id="30001">Nzbs id i</string>
+    <string id="30002">Nzbs key h</string>
+    <string id="30003">Hide XXX</string>
+    <string id="30004">Default mode </string>
+    <string id="30005"></string>
+    <string id="30006">SABnzbd API key</string>
+    <string id="30007">SABnzbd incomplete folder</string>
+    <string id="30008">SABnzbd IP</string>
+    <string id="30009">SABnzbd port</string>
+    <string id="30100">streaming</string>
+    <string id="30101">download</string>
+</strings>
