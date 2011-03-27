@@ -36,7 +36,7 @@ import xbmcgui
 import xbmcplugin
 
 from xml.dom.minidom import parse, parseString
-from rar import RarFile
+from rarfile import RarFile
 from sabnzbd import sabnzbd
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
