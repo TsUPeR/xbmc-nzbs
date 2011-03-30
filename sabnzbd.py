@@ -11,7 +11,6 @@ class sabnzbd(object):
     
     
     def addurl(self, nzb, nzbname):
-        # TODO
         url = self.baseurl + "&mode=addurl&name=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(nzbname)
         responseMessage = self._sabResponse(url)
         return responseMessage
@@ -105,12 +104,8 @@ class sabnzbd(object):
         return responseMessage 
         
     def setStreaming(self, nzbname='',id=''):
-        # DEBUG
-        print nzbname + " " + id
         if (not id) and nzbname:
             id = self.nzo_id(nzbname)
-            # DEBUG
-            print id
         if id:
             ppMessage = self.postProcess(0,'',id)
             switchMessage = self.switch(0,'',id)
@@ -138,7 +133,6 @@ class sabnzbd(object):
         return responseMessage
         
     def nzo_id(self, nzbname):
-        # TODO
         url = self.baseurl + "&mode=queue&start=START&limit=LIMIT&output=xml"
         doc = _load_xml(url)
         sab_nzo_id = None
@@ -150,7 +144,6 @@ class sabnzbd(object):
         return sab_nzo_id
 
     def nzo_id_history(self, nzbname):
-        # TODO
         url = self.baseurl + "&mode=history&start=START&limit=LIMIT&output=xml"
         doc = _load_xml(url)
         sab_nzo_id = None
