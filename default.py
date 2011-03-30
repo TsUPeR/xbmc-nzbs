@@ -43,6 +43,7 @@ __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
 
 RE_PART = '.part\d\d.rar'
+RAR_HEADER = "Rar!\x1a\x07\x00"
 
 NS_MEDIA = "http://search.yahoo.com/mrss/"
 NS_REPORT = "http://www.newzbin.com/DTD/2007/feeds/report/"
@@ -385,8 +386,10 @@ def playVideo(params):
                     filebasename = basename + str(i) + str(y) + end
                     filename = os.path.join(folder, filebasename) 
                     if not os.path.exists(filename):
-                        # make 0 byte file
-                        open(filename,'w').close()
+                        # make 7 byte file with a rar header
+                        fd = open(filename,'wb')
+                        fd.write(RAR_HEADER)
+                        fd.close()
         # lets play the movie
         filepath = os.path.join(folder, file)
         raruri = "rar://" + rarpath_fixer(filepath) + "/" + movieFile
@@ -402,7 +405,7 @@ def playVideo(params):
                     filebasename = basename + str(i) + str(y) + end
                     filename = os.path.join(folder, filebasename)
                     if os.path.exists(filename):
-                        if os.stat(filename).st_size == 0:
+                        if os.stat(filename).st_size == 7:
                             os.remove(filename)
             resume = SABNZBD.resume('', sab_nzo_id)
             if not "ok" in resume:
