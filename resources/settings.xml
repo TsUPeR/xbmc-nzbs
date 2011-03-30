@@ -3,13 +3,14 @@
   <category label="General">
   <setting id="mode" type="enum" label="30004" lvalues="30100|30101" default="0"/>
   <setting type="sep" />
-  <setting id="nzbs_id" type="number" label="30001" default="" />
-  <setting id="nzbs_key" type="text" label="30002" default=""/>
-  <setting id="nzbs_hide_xxx" type="bool" label="30003" default="true"/>
-  <setting type="sep" />
   <setting id="sabnzbd_key" type="text" label="30006" default=""/>
-  <setting id="sabnzbd_incomplete" type="folder" label="30007" default=""/>
   <setting id="sabnzbd_ip" type="ipaddress" label="30008" default="127.0.0.1"/>
   <setting id="sabnzbd_port" type="number" label="30009" default=8080/>
+  <setting id="sabnzbd_incomplete" type="folder" label="30007" default=""/>
+  <setting type="sep" />
+  <setting id="nzbs_enable" type="bool" label="30010" default="true" />
+  <setting id="nzbs_id" visible= "eq(-1,true)" enable="eq(-1,true)" type="number" label="30011" default="" />
+  <setting id="nzbs_key" visible= "eq(-2,true)" enable="eq(-2,true)" type="text" label="30012" default=""/>
+  <setting id="nzbs_hide_xxx" visible= "eq(-3,true)" enable="eq(-3,true)" type="bool" label="30013" default="true"/>
   </category>
 </settings>
