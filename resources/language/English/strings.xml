@@ -11,9 +11,12 @@
     <string id="30009">SABnzbd port</string>
     <!-- Nzbs.org -->
     <string id="30010">Nzbs.org</string>
-    <string id="30011">Nzbs id i</string>
-    <string id="30012">Nzbs key h</string>
-    <string id="30013">Hide XXX</string>
+    <string id="30011"> - Nzbs id i</string>
+    <string id="30012"> - Nzbs key h</string>
+    <string id="30013"> - Hide XXX</string>
     <!-- nzb.su -->
-
+    <string id="30020">Nzb.su</string>
+    <string id="30021"> - Nzb.su id i</string>
+    <string id="30022"> - Nzb.su key r</string>
+    <string id="30023"> - Hide XXX</string>
 </strings>

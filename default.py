@@ -47,6 +47,7 @@ RAR_HEADER = "Rar!\x1a\x07\x00"
 
 NS_MEDIA = "http://search.yahoo.com/mrss/"
 NS_REPORT = "http://www.newzbin.com/DTD/2007/feeds/report/"
+NS_NEWZNAB = "http://www.newznab.com/DTD/2010/feeds/attributes/"
 
 STREAMING = [1,0][int(__settings__.getSetting("mode"))]
 NUMBER = [25,50,75,100][int(__settings__.getSetting("num"))]
@@ -72,7 +73,7 @@ MODE_NZBS_MYSEARCH = "nzbs&nzbs=mysearch"
 NZBS_URL = ("http://www.nzbs.org/rss.php?dl=1&i=" + __settings__.getSetting("nzbs_id") + 
             "&h=" + __settings__.getSetting("nzbs_key") + "&num=" + str(NUMBER) + "&")
 
-TABLE = [['Movies', 1, 2],
+TABLE_NZBS = [['Movies', 1, 2],
         [' - DVD', 0, 9],
         [' - WMW-HD', 0, 12],
         [' - XviD', 0, 2],
@@ -103,7 +104,6 @@ def nzbs(params):
             typeid = get("type")
             nzbs = get("nzbs")
             if nzbs:
-                print nzbs
                 if nzbs == "mynzbs":
                     url = NZBS_URL + "&action=mynzbs"
                 if nzbs == "mysearch":
@@ -122,11 +122,11 @@ def nzbs(params):
                 url = NZBS_URL + "&type=" + typeid
                 key = "&type=" + typeid
                 addPosts('Search...', key, MODE_NZBS_SEARCH, '', '')
-            listFeed(url)
+            list_feed_nzbs(url)
         else:
             # if not (catid and typeid):
             # Build Main menu
-            for name, type, catid in TABLE:
+            for name, type, catid in TABLE_NZBS:
                 if ("XXX" in name) and (__settings__.getSetting("nzbs_hide_xxx").lower() == "true"):
                  break
                 if type:
@@ -139,7 +139,7 @@ def nzbs(params):
             addPosts("My Searches", '', MODE_NZBS_MYSEARCH, '', '')
     return
 
-def listFeed(feedUrl):
+def list_feed_nzbs(feedUrl):
     doc = load_xml(feedUrl)
     for item in doc.getElementsByTagName("item"):
         title = get_node_value(item, "title")
@@ -158,7 +158,86 @@ def listFeed(feedUrl):
         addPosts(title, nzb, mode, description, thumb)
     return
             
-  
+# ---NZB.SU---
+MODE_NZB_SU = "nzb.su"
+MODE_NZB_SU_SEARCH = "nzb.su&nzb.su=search"
+MODE_NZB_SU_MY = "nzb.su&nzb.su=mycart"
+
+NZB_SU_URL = ("http://nzb.su/rss?dl=1&i=" + __settings__.getSetting("nzb_su_id") + 
+            "&r=" + __settings__.getSetting("nzb_su_key") + "&num=" + str(NUMBER) + "&")
+NZB_SU_URL_SEARCH = ("http://nzb.su/api?dl=1&apikey=" + __settings__.getSetting("nzb_su_key") + 
+            "&num=" + str(NUMBER) + "&")
+
+TABLE_NZB_SU = [['Movies', 2000],
+        [' - HD', 2040],
+        [' - SD', 2030],
+        [' - Other', 2020],
+        [' - Foreign', 2010],
+        ['TV', 5000],
+        [' - HD', 5040],
+        [' - SD', 5030],
+        [' - other', 5050],
+        [' - Foreign', 5020],
+        [' - Sport', 5060],
+        [' - Anime', 5070],
+        ['XXX', 6000],
+        [' - DVD', 6010],
+        [' - WMV', 6020],
+        [' - XviD', 6030],
+        [' - x264', 6040]]
+
+def nzb_su(params):
+    if not(__settings__.getSetting("nzb_su_id") and __settings__.getSetting("nzb_su_key")):
+        __settings__.openSettings()
+    else:
+        if params:
+            get = params.get
+            catid = get("catid")
+            nzb_su = get("nzb.su")
+            if nzb_su:
+                if nzb_su == "mycart":
+                    url = NZB_SU_URL + "&t=-2"
+                if nzb_su == "search":
+                    search_term = search('Nzb.su')
+                    if search_term:
+                        url = (NZB_SU_URL_SEARCH + "&t=search" + "&cat=" + catid + "&q=" 
+                        + search_term)
+            elif catid:
+                url = NZB_SU_URL + "&t=" + catid
+                key = "&catid=" + catid
+                addPosts('Search...', key, MODE_NZB_SU_SEARCH, '', '')
+            list_feed_nzb_su(url)
+        else:
+            # if not catid:
+            # Build Main menu
+            for name, catid in TABLE_NZB_SU:
+                if ("XXX" in name) and (__settings__.getSetting("nzb_su_hide_xxx").lower() == "true"):
+                 break
+                key = "&catid=" + str(catid)
+                addPosts(name, key, MODE_NZB_SU, '', '')
+            # TODO add settings toggle
+            addPosts("My Cart", '', MODE_NZB_SU_MY, '', '')
+    return
+
+def list_feed_nzb_su(feedUrl):
+    doc = load_xml(feedUrl)
+    for item in doc.getElementsByTagName("item"):
+        title = get_node_value(item, "title")
+        description = get_node_value(item, "description")
+        nzb = get_node_value(item, "link")
+        thumbid = item.getElementsByTagNameNS(NS_NEWZNAB, "imdb")
+        thumb = ""
+        if thumbid:
+            thumbid = get_node_value(item, "imdb", NS_NEWZNAB)
+            thumb = "http://nzb.su/covers/movies/" + thumbid + "-cover.jpg"
+        nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
+        if STREAMING:
+            mode = MODE_LIST
+        else:
+            mode = MODE_DOWNLOAD
+        addPosts(title, nzb, mode, description, thumb)
+    return
+
 def addPosts(title, url, mode, description='', thumb='', folder=True):
     listitem=xbmcgui.ListItem(title, iconImage="DefaultFolder.png", thumbnailImage=thumb)
     listitem.setInfo(type="Video", infoLabels={ "Title": title, "Plot" : description })
@@ -227,14 +306,12 @@ def listVideo(params):
 
 def listFile(nzbname):
     folder = INCOMPLETE_FOLDER + nzbname
-    print folder
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for first rar')
     seconds = 0
     while not os.path.exists(folder):
         time.sleep(1)
         seconds += 1
-        print "waiting for incomplete...."
         label = str(seconds) + " seconds"
         progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', 'Waiting for download to start', label)
         if progressDialog.iscanceled():
@@ -550,7 +627,10 @@ if (__name__ == "__main__" ):
         __settings__.openSettings()
         __settings__.setSetting("firstrun", '1')
     if (not sys.argv[2]):
-        nzbs(None)
+        if __settings__.getSetting("nzbs_enable").lower() == "true":
+            nzbs(None)
+        if __settings__.getSetting("nzb_su_enable").lower() == "true":
+            nzb_su(None)
         addPosts('Incomplete', '', MODE_INCOMPLETE)
     else:
         params = getParameters(sys.argv[2])
@@ -567,6 +647,8 @@ if (__name__ == "__main__" ):
             repair(params)
         if get("mode")== MODE_NZBS:
             nzbs(params)
+        if get("mode")== MODE_NZB_SU:
+            nzb_su(params)
         if get("mode")== MODE_INCOMPLETE:
             incomplete()
         if get("mode")== MODE_INCOMPLETE_LIST:

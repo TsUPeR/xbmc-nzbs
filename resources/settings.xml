@@ -13,5 +13,9 @@
   <setting id="nzbs_id" visible= "eq(-1,true)" enable="eq(-1,true)" type="number" label="30011" default="" />
   <setting id="nzbs_key" visible= "eq(-2,true)" enable="eq(-2,true)" type="text" label="30012" default=""/>
   <setting id="nzbs_hide_xxx" visible= "eq(-3,true)" enable="eq(-3,true)" type="bool" label="30013" default="true"/>
+  <setting id="nzb_su_enable" type="bool" label="30020" default="false" />
+  <setting id="nzb_su_id" visible= "eq(-1,true)" enable="eq(-1,true)" type="number" label="30021" default="" />
+  <setting id="nzb_su_key" visible= "eq(-2,true)" enable="eq(-2,true)" type="text" label="30022" default=""/>
+  <setting id="nzb_su_hide_xxx" visible= "eq(-3,true)" enable="eq(-3,true)" type="bool" label="30023" default="true"/>
   </category>
 </settings>
