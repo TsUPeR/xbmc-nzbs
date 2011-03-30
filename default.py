@@ -49,6 +49,7 @@ NS_MEDIA = "http://search.yahoo.com/mrss/"
 NS_REPORT = "http://www.newzbin.com/DTD/2007/feeds/report/"
 
 STREAMING = [1,0][int(__settings__.getSetting("mode"))]
+NUMBER = [25,50,75,100][int(__settings__.getSetting("num"))]
 
 SABNZBD = sabnzbd(__settings__.getSetting("sabnzbd_ip"),
         __settings__.getSetting("sabnzbd_port"),__settings__.getSetting("sabnzbd_key"))
@@ -69,7 +70,7 @@ MODE_NZBS_MY = "nzbs&nzbs=mynzbs"
 MODE_NZBS_MYSEARCH = "nzbs&nzbs=mysearch"
 
 NZBS_URL = ("http://www.nzbs.org/rss.php?dl=1&i=" + __settings__.getSetting("nzbs_id") + 
-            "&h=" + __settings__.getSetting("nzbs_key") + "&")
+            "&h=" + __settings__.getSetting("nzbs_key") + "&num=" + str(NUMBER) + "&")
 
 TABLE = [['Movies', 1, 2],
         [' - DVD', 0, 9],
