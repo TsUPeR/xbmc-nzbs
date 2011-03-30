@@ -505,7 +505,7 @@ def delete(params):
     folder = urllib.unquote_plus(folder)
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Deleting')
-    if sab_nzo_id:
+    if not "None" in sab_nzo_id:
         pause = SABNZBD.pause('',sab_nzo_id)
         time.sleep(3)
         if "ok" in pause:
@@ -517,7 +517,7 @@ def delete(params):
                 progressDialog.update(0, 'Deletion failed!')
         else:
             progressDialog.update(0, 'Deletion failed!')
-    elif sab_nzo_id_history:
+    elif not "None" in sab_nzo_id_history:
         delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
         if "ok" in delete_:
             progressDialog.update(100, 'Deletion', 'Succeeded')
