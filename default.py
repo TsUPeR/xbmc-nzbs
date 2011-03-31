@@ -288,11 +288,11 @@ def listVideo(params):
                 seconds += 1
                 label = str(seconds) + " seconds"
                 progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download', label)
-            setstreaming = SABNZBD.setStreaming(nzbname, '')
-            if not "ok" in setstreaming:
-                xbmc.log(setstreaming)
-                progressDialog.update(0, 'Stream request to SABnzbd failed!')
-            time.sleep(2)
+            switch = SABNZBD.switch(0,nzbname, '')
+            if not "ok" in switch:
+                xbmc.log(switch)
+                progressDialog.update(0, 'Failed to prioritize the nzb!')
+                time.sleep(2)
             progressDialog.close()
             listFile(nzbname)
         else:
@@ -308,14 +308,15 @@ def listFile(nzbname):
     folder = INCOMPLETE_FOLDER + nzbname
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for first rar')
-    seconds = 0
-    while not os.path.exists(folder):
-        time.sleep(1)
-        seconds += 1
-        label = str(seconds) + " seconds"
-        progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', 'Waiting for download to start', label)
-        if progressDialog.iscanceled():
-            break
+    if not os.path.exists(folder):
+        seconds = 0
+        while not os.path.exists(folder):
+            time.sleep(1)
+            seconds += 1
+            label = str(seconds) + " seconds"
+            progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', 'Waiting for download to start', label)
+            if progressDialog.iscanceled():
+                break
     size = -1
     rar = False
     seconds = 0
@@ -332,8 +333,8 @@ def listFile(nzbname):
         progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', label)
         if progressDialog.iscanceled():
             break
-        seconds += 2
-        time.sleep(2)
+        seconds += 1
+        time.sleep(1)
         
     movieFile = RarFile(filepath).namelist()
     progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
@@ -348,10 +349,10 @@ def listFile(nzbname):
             progressDialog.update(0, 'Request to SABnzbd failed!')
             time.sleep(2)
         # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
-        setstreaming = SABNZBD.setStreaming('', sab_nzo_id)
-        if not "ok" in setstreaming:
-            xbmc.log(setstreaming)
-            progressDialog.update(0, 'Stream request to SABnzbd failed!')
+        postprocess = SABNZBD.postProcess(0, '', sab_nzo_id)
+        if not "ok" in postprocess:
+            xbmc.log(postprocess)
+            progressDialog.update(0, 'Post process request to SABnzbd failed!')
             time.sleep(2)
     else:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
@@ -380,7 +381,7 @@ def list_incomplete(params):
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
     folder = INCOMPLETE_FOLDER + nzbname
-    if sab_nzo_id:
+    if not "None" in sab_nzo_id:
         progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'Waiting for first rar')
     rar = False
@@ -396,7 +397,7 @@ def list_incomplete(params):
                     break
                 size = os.path.getsize(filepath)
         label = str(seconds) + " seconds"
-        if sab_nzo_id:
+        if not "None" in sab_nzo_id:
             progressDialog.update(0, 'Waiting for first rar', label)
             if progressDialog.iscanceled():
                 break
@@ -406,7 +407,7 @@ def list_incomplete(params):
     movieFile = RarFile(filepath).namelist()
     # DEBUG
     print movieFile
-    if sab_nzo_id:
+    if not "None" in sab_nzo_id:
         progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
         pause = SABNZBD.pause('',sab_nzo_id)
         if "ok" in pause:
@@ -452,7 +453,7 @@ def playVideo(params):
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
-        if sab_nzo_id:
+        if not "None" in sab_nzo_id:
             end = ""
             if ".part01.rar" in file:
                 basename = file.replace(".part01.rar", ".part")
@@ -477,7 +478,7 @@ def playVideo(params):
         xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         time.sleep(5)
         # if the item is in the queue we remove the temp files
-        if sab_nzo_id:
+        if not "None" in sab_nzo_id:
             for i in range(10):
                 for y in range(10):
                     filebasename = basename + str(i) + str(y) + end
