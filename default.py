@@ -482,10 +482,14 @@ def playVideo(params):
             for i in range(10):
                 for y in range(10):
                     filebasename = basename + str(i) + str(y) + end
+                    filebasename_one = basename + str(i) + str(y) + end + ".1"
                     filename = os.path.join(folder, filebasename)
+                    filename_one = os.path.join(folder, filebasename_one)
                     if os.path.exists(filename):
                         if os.stat(filename).st_size == 7:
                             os.remove(filename)
+                            if os.path.exists(filename_one):
+                                os.rename(filename_one, filename)
             resume = SABNZBD.resume('', sab_nzo_id)
             if not "ok" in resume:
                 xbmc.log(resume)  
