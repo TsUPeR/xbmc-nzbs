@@ -384,7 +384,7 @@ def list_incomplete(params):
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
     folder = INCOMPLETE_FOLDER + nzbname
-    if not "None" in sab_nzo_id:
+    if sab_nzo_id:
         progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'Waiting for first rar')
     rar = False
@@ -400,7 +400,7 @@ def list_incomplete(params):
                     break
                 size = os.path.getsize(filepath)
         label = str(seconds) + " seconds"
-        if not "None" in sab_nzo_id:
+        if sab_nzo_id:
             progressDialog.update(0, 'Waiting for first rar', label)
             if progressDialog.iscanceled():
                 break
@@ -410,7 +410,7 @@ def list_incomplete(params):
     movieFile = RarFile(filepath).namelist()
     # DEBUG
     print movieFile
-    if not "None" in sab_nzo_id:
+    if sab_nzo_id:
         progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
         pause = SABNZBD.pause('',sab_nzo_id)
         if "ok" in pause:
@@ -575,11 +575,22 @@ def repair(params):
     return
 
 def incomplete():
+    m_nzbname_list = []
+    m_row = []
     for folder in os.listdir(INCOMPLETE_FOLDER):
         sab_nzo_id = SABNZBD.nzo_id(folder)
-        sab_nzo_id_history = SABNZBD.nzo_id_history(folder)
-        url = "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&nzbname=" + urllib.quote_plus(folder)
-        addPosts(folder, url, MODE_INCOMPLETE_LIST)
+        if not sab_nzo_id:
+            m_row.append(folder)
+            m_row.append(None)
+            m_nzbname_list.append(m_row)
+        else:
+            url = "&nzoid=" + str(sab_nzo_id) + "&nzbname=" + urllib.quote_plus(folder)
+            addPosts(folder, url, MODE_INCOMPLETE_LIST)
+    nzbname_list = SABNZBD.nzo_id_history_list(m_nzbname_list)
+    for row in nzbname_list:
+        if row[1]:
+            url = "&nzoidhistory=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0])
+            addPosts(folder, url, MODE_INCOMPLETE_LIST)
     return
 
 def get_node_value(parent, name, ns=""):

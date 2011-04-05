@@ -49,7 +49,8 @@ class sabnzbd(object):
 
     def delete_history(self, nzbname='', id=''):
         if nzbname:
-            sab_nzo_id = self.nzo_id(nzbname)
+            sab_nzo_id = self.nzo_id_history(nzbname)
+            # TODO if nothing found
             url = self.baseurl + "&mode=history&name=delete&del_files=1&value=" + str(sab_nzo_id)
             responseMessage = self._sabResponse(url)
         elif id:
@@ -144,15 +145,44 @@ class sabnzbd(object):
         return sab_nzo_id
 
     def nzo_id_history(self, nzbname):
-        url = self.baseurl + "&mode=history&start=START&limit=LIMIT&output=xml"
-        doc = _load_xml(url)
+        start = 0
+        limit = 20
+        noofslots = 21
         sab_nzo_id = None
-        if doc.getElementsByTagName("slot"):
-            for slot in doc.getElementsByTagName("slot"):
-                filename = get_node_value(slot, "name")
-                if filename == nzbname:
-                    sab_nzo_id  = get_node_value(slot, "nzo_id")                        
+        while limit <= noofslots and not sab_nzo_id:
+            url = self.baseurl + "&mode=history&start=" +str(start) + "&limit=" + str(limit) + "&output=xml"
+            doc = _load_xml(url)
+            history = doc.getElementsByTagName("history")
+            noofslots = int(get_node_value(history[0], "noofslots"))
+            if doc.getElementsByTagName("slot"):
+                for slot in doc.getElementsByTagName("slot"):
+                    filename = get_node_value(slot, "name")
+                    if filename == nzbname:
+                        sab_nzo_id  = get_node_value(slot, "nzo_id")
+            start = limit + 1
+            limit = limit + 20
         return sab_nzo_id
+
+    def nzo_id_history_list(self, nzbname_list):
+        start = 0
+        limit = 20
+        noofslots = 21
+        sab_nzo_id = None
+        while limit <= noofslots and not sab_nzo_id:
+            url = self.baseurl + "&mode=history&start=" +str(start) + "&limit=" + str(limit) + "&output=xml"
+            doc = _load_xml(url)
+            history = doc.getElementsByTagName("history")
+            noofslots = int(get_node_value(history[0], "noofslots"))
+            if doc.getElementsByTagName("slot"):
+                for slot in doc.getElementsByTagName("slot"):
+                    filename = get_node_value(slot, "name")
+                    for row in nzbname_list:
+                        if filename == row[0]:
+                            sab_nzo_id = get_node_value(slot, "nzo_id")
+                            row[1] = sab_nzo_id
+            start = limit + 1
+            limit = limit + 20
+        return nzbname_list
 
 def get_node_value(parent, name, ns=""):
     if ns:
