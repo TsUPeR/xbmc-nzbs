@@ -288,6 +288,7 @@ def listVideo(params):
                 seconds += 1
                 label = str(seconds) + " seconds"
                 progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download', label)
+                # TODO isCanceled
             switch = SABNZBD.switch(0,nzbname, '')
             if not "ok" in switch:
                 xbmc.log(switch)
@@ -333,6 +334,7 @@ def listFile(nzbname):
         progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', label)
         if progressDialog.iscanceled():
             break
+            # TODO Delete or continue download...
         seconds += 1
         time.sleep(1)
         
@@ -357,6 +359,7 @@ def listFile(nzbname):
     else:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
     progressDialog.close()
+    # TODO auto play movie
     xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
     item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
     item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
@@ -386,8 +389,8 @@ def list_incomplete(params):
         progressDialog.create('NZBS', 'Waiting for first rar')
     rar = False
     size = -1
+    seconds = 0
     while not rar:
-        seconds = 0
         for file in os.listdir(folder):
             partrar = re.findall(RE_PART, file)
             if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
