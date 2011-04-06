@@ -306,6 +306,7 @@ def listVideo(params):
         listFile(nzbname)
 
 def listFile(nzbname):
+    iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for first rar')
@@ -318,6 +319,11 @@ def listFile(nzbname):
             progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', 'Waiting for download to start', label)
             if progressDialog.iscanceled():
                 break
+    sab_nzo_id = SABNZBD.nzo_id(nzbname)
+    if not sab_nzo_id:
+        sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
+    else:
+        sab_nzo_id_history = None
     size = -1
     rar = False
     seconds = 0
@@ -333,51 +339,65 @@ def listFile(nzbname):
         label = str(seconds) + " seconds"
         progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', label)
         if progressDialog.iscanceled():
-            break
-            # TODO Delete or continue download...
+            dialog = xbmcgui.Dialog()
+            ret = dialog.select('What do you want to do?', ['Delete job', 'Just download'])
+            if ret == 0:
+                if sab_nzo_id:
+                    pause = SABNZBD.pause('',sab_nzo_id)
+                    time.sleep(3)
+                    delete_ = SABNZBD.delete_queue('',sab_nzo_id)
+                else:
+                    delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
+                if not "ok" in delete_:
+                    xbmc.log(delete_)
+                iscanceled = True
+                break
+            if ret == 1:
+                iscanceled = True
+                break
         seconds += 1
         time.sleep(1)
-        
-    movieFile = RarFile(filepath).namelist()
-    progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
-    sab_nzo_id = SABNZBD.nzo_id(nzbname)
-    sab_nzo_id_history = ''
-    if sab_nzo_id:
-        pause = SABNZBD.pause('',sab_nzo_id)
-        if "ok" in pause:
-            progressDialog.update(0, 'First rar downloaded', 'SABnzbd paused')
-        else:
-            xbmc.log(pause)
-            progressDialog.update(0, 'Request to SABnzbd failed!')
-            time.sleep(2)
-        # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
-        postprocess = SABNZBD.postProcess(0, '', sab_nzo_id)
-        if not "ok" in postprocess:
-            xbmc.log(postprocess)
-            progressDialog.update(0, 'Post process request to SABnzbd failed!')
-            time.sleep(2)
+    if not iscanceled:
+        movieFile = RarFile(filepath).namelist()
+        progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
+
+        if sab_nzo_id:
+            pause = SABNZBD.pause('',sab_nzo_id)
+            if "ok" in pause:
+                progressDialog.update(0, 'First rar downloaded', 'SABnzbd paused')
+            else:
+                xbmc.log(pause)
+                progressDialog.update(0, 'Request to SABnzbd failed!')
+                time.sleep(2)
+            # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
+            postprocess = SABNZBD.postProcess(0, '', sab_nzo_id)
+            if not "ok" in postprocess:
+                xbmc.log(postprocess)
+                progressDialog.update(0, 'Post process request to SABnzbd failed!')
+                time.sleep(2)
+        progressDialog.close()
+        # TODO auto play movie
+        xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
+        item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
+        url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
+                    "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+        item.setPath(url)
+        isfolder = False
+        item.setProperty("IsPlayable", "true")
+        cm = []
+        if sab_nzo_id_history:
+            cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+            cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
+        cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+        cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
+        item.addContextMenuItems(cm, replaceItems=True)
+        return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
     else:
-        sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
-    progressDialog.close()
-    # TODO auto play movie
-    xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-    item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
-    item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
-    url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
-                "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
-    item.setPath(url)
-    isfolder = False
-    item.setProperty("IsPlayable", "true")
-    cm = []
-    if sab_nzo_id_history:
-        cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-        cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
-    cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-    cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
-    item.addContextMenuItems(cm, replaceItems=True)
-    return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+        return
 
 def list_incomplete(params):
+    iscanceled = False
     get = params.get
     nzbname = get("nzbname")
     nzbname = urllib.unquote_plus(nzbname)
@@ -403,46 +423,63 @@ def list_incomplete(params):
         if sab_nzo_id:
             progressDialog.update(0, 'Waiting for first rar', label)
             if progressDialog.iscanceled():
-                break
+                dialog = xbmcgui.Dialog()
+                ret = dialog.select('What do you want to do?', ['Delete job', 'Just download'])
+                if ret == 0:
+                    if sab_nzo_id:
+                        pause = SABNZBD.pause('',sab_nzo_id)
+                        time.sleep(3)
+                        delete_ = SABNZBD.delete_queue('',sab_nzo_id)
+                    else:
+                        delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
+                    if not "ok" in delete_:
+                        xbmc.log(delete_)
+                    iscanceled = True
+                    break
+                if ret == 1:
+                    iscanceled = True
+                    break
         seconds += 2
         time.sleep(2)
-        
-    movieFile = RarFile(filepath).namelist()
-    # DEBUG
-    print movieFile
-    if sab_nzo_id:
-        progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
-        pause = SABNZBD.pause('',sab_nzo_id)
-        if "ok" in pause:
-            progressDialog.update(0, 'First rar downloaded', 'SABnzbd paused')
-        else:
-            xbmc.log(pause)
-            progressDialog.update(0, 'Request to SABnzbd failed!')
-            time.sleep(2)
-        # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
-        setstreaming = SABNZBD.setStreaming('', sab_nzo_id)
-        if not "ok" in setstreaming:
-            xbmc.log(setstreaming)
-            progressDialog.update(0, 'Stream request to SABnzbd failed!')
-            time.sleep(2)
-        progressDialog.close()
+    if not iscanceled:
+        movieFile = RarFile(filepath).namelist()
+        # DEBUG
+        print movieFile
+        if sab_nzo_id:
+            progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
+            pause = SABNZBD.pause('',sab_nzo_id)
+            if "ok" in pause:
+                progressDialog.update(0, 'First rar downloaded', 'SABnzbd paused')
+            else:
+                xbmc.log(pause)
+                progressDialog.update(0, 'Request to SABnzbd failed!')
+                time.sleep(2)
+            # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
+            setstreaming = SABNZBD.setStreaming('', sab_nzo_id)
+            if not "ok" in setstreaming:
+                xbmc.log(setstreaming)
+                progressDialog.update(0, 'Stream request to SABnzbd failed!')
+                time.sleep(2)
+            progressDialog.close()
 
-    xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-    item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
-    item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
-    url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
-                "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
-    item.setPath(url)
-    isfolder = False
-    item.setProperty("IsPlayable", "true")
-    cm = []
-    if sab_nzo_id_history:
-        cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-        cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
-    cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-    cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
-    item.addContextMenuItems(cm, replaceItems=True)
-    return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+        xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
+        item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
+        url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
+                    "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+        item.setPath(url)
+        isfolder = False
+        item.setProperty("IsPlayable", "true")
+        cm = []
+        if sab_nzo_id_history:
+            cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+            cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
+        cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+        cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
+        item.addContextMenuItems(cm, replaceItems=True)
+        return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+    else:
+        return
 
 def playVideo(params):
     get = params.get
@@ -583,6 +620,7 @@ def incomplete():
             m_row.append(folder)
             m_row.append(None)
             m_nzbname_list.append(m_row)
+            m_row = []
         else:
             url = "&nzoid=" + str(sab_nzo_id) + "&nzbname=" + urllib.quote_plus(folder)
             addPosts(folder, url, MODE_INCOMPLETE_LIST)
@@ -590,7 +628,7 @@ def incomplete():
     for row in nzbname_list:
         if row[1]:
             url = "&nzoidhistory=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0])
-            addPosts(folder, url, MODE_INCOMPLETE_LIST)
+            addPosts(row[0], url, MODE_INCOMPLETE_LIST)
     return
 
 def get_node_value(parent, name, ns=""):
