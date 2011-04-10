@@ -5,6 +5,8 @@
     <string id="30100">streaming</string>
     <string id="30101">download</string>
     <string id="30005">Number of feed items</string>
+    <string id="30003">Auto play videos</string>
+    <!-- SABnzbd -->
     <string id="30006">SABnzbd API key</string>
     <string id="30007">SABnzbd incomplete folder</string>
     <string id="30008">SABnzbd IP</string>

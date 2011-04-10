@@ -59,6 +59,7 @@ INCOMPLETE_FOLDER = __settings__.getSetting("sabnzbd_incomplete")
 MODE_LIST = "list"
 MODE_DOWNLOAD = "download"
 MODE_PLAY = "play"
+MODE_AUTO_PLAY = "auto_play"
 MODE_DELETE = "delete"
 MODE_REPAIR = "repair"
 MODE_INCOMPLETE = "incomplete"
@@ -249,6 +250,8 @@ def addPosts(title, url, mode, description='', thumb='', folder=True):
         if STREAMING :
             cm_mode = MODE_DOWNLOAD
             cm_label = "Download"
+            if (__settings__.getSetting("auto_play").lower() == "true"):
+                folder = False
         else:
             cm_mode = MODE_LIST
             cm_label = "Stream"
@@ -374,25 +377,35 @@ def listFile(nzbname):
             if not "ok" in postprocess:
                 xbmc.log(postprocess)
                 progressDialog.update(0, 'Post process request to SABnzbd failed!')
-                time.sleep(2)
+                time.sleep(1)
         progressDialog.close()
-        # TODO auto play movie
-        xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-        item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
-        url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
+        time.sleep(1)
+        if (__settings__.getSetting("auto_play").lower() == "true"):
+            video_params = dict()
+            video_params['nzoidhistory'] = str(sab_nzo_id_history)
+            video_params['filename'] = urllib.quote_plus(movieFile[0])
+            video_params['mode'] = MODE_AUTO_PLAY
+            video_params['file'] = urllib.quote_plus(file)
+            video_params['folder'] = urllib.quote_plus(folder)
+            video_params['nzoid'] = str(sab_nzo_id)
+            return playVideo(video_params)
+        else:
+            xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
+            url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
                     "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
-        item.setPath(url)
-        isfolder = False
-        item.setProperty("IsPlayable", "true")
-        cm = []
-        if sab_nzo_id_history:
-            cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-            cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
-        cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-        cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
-        item.addContextMenuItems(cm, replaceItems=True)
-        return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+            item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
+            item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
+            item.setPath(url)
+            isfolder = False
+            item.setProperty("IsPlayable", "true")
+            cm = []
+            if sab_nzo_id_history:
+                cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+                cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
+            cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+            cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
+            item.addContextMenuItems(cm, replaceItems=True)
+            return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
     else:
         return
 
@@ -461,12 +474,11 @@ def list_incomplete(params):
                 progressDialog.update(0, 'Stream request to SABnzbd failed!')
                 time.sleep(2)
             progressDialog.close()
-
         xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-        item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
         url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
                     "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+        item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
         item.setPath(url)
         isfolder = False
         item.setProperty("IsPlayable", "true")
@@ -483,6 +495,7 @@ def list_incomplete(params):
 
 def playVideo(params):
     get = params.get
+    mode = get("mode")
     file = get("file")
     file = urllib.unquote_plus(file)
     folder = get("folder")
@@ -512,10 +525,13 @@ def playVideo(params):
         # lets play the movie
         filepath = os.path.join(folder, file)
         raruri = "rar://" + rarpath_fixer(filepath) + "/" + movieFile
-        item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movieFile})
-        item.setPath(raruri)
-        xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
+        if mode == MODE_AUTO_PLAY:
+            xbmc.executebuiltin("xbmc.PlayMedia("+raruri+")")
+        else:
+            item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
+            item.setInfo(type="Video", infoLabels={ "Title": movieFile})
+            item.setPath(raruri)
+            xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         time.sleep(5)
         # if the item is in the queue we remove the temp files
         if not "None" in sab_nzo_id:
@@ -694,7 +710,7 @@ if (__name__ == "__main__" ):
         get = params.get
         if get("mode")== MODE_LIST:
             listVideo(params)
-        if get("mode")== MODE_PLAY:
+        if get("mode")== MODE_PLAY or get("mode")== MODE_AUTO_PLAY:
             playVideo(params)
         if get("mode")== MODE_DELETE:
             delete(params)
