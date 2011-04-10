@@ -279,9 +279,9 @@ def listVideo(params):
     nzb = urllib.unquote_plus(get("nzb"))
     nzbname = urllib.unquote_plus(get("nzbname"))
     folder = INCOMPLETE_FOLDER + nzbname
+    progressDialog = xbmcgui.DialogProgress()
     if not os.path.exists(folder):
         addurl = SABNZBD.addurl(nzb, nzbname)
-        progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'Sending request to SABnzbd')
         if "ok" in addurl:
             progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download')
@@ -305,6 +305,12 @@ def listVideo(params):
             time.sleep(2)
             progressDialog.close()
     else:
+        switch = SABNZBD.switch(0,nzbname, '')
+        if not "ok" in switch:
+            xbmc.log(switch)
+            progressDialog.create('NZBS', 'Failed to prioritize the nzb!')
+            time.sleep(2)
+        progressDialog.close()
         # TODO make sure there is also a NZB in the queue
         listFile(nzbname)
 
