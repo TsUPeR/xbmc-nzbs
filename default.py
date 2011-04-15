@@ -49,7 +49,6 @@ NS_MEDIA = "http://search.yahoo.com/mrss/"
 NS_REPORT = "http://www.newzbin.com/DTD/2007/feeds/report/"
 NS_NEWZNAB = "http://www.newznab.com/DTD/2010/feeds/attributes/"
 
-STREAMING = [1,0][int(__settings__.getSetting("mode"))]
 NUMBER = [25,50,75,100][int(__settings__.getSetting("num"))]
 
 SABNZBD = sabnzbd(__settings__.getSetting("sabnzbd_ip"),
@@ -152,10 +151,7 @@ def list_feed_nzbs(feedUrl):
             thumbid = get_node_value(item, "imdbid", NS_REPORT)
             thumb = "http://www.nzbs.org/imdb/" + thumbid + ".jpg"
         nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
-        if STREAMING:
-            mode = MODE_LIST
-        else:
-            mode = MODE_DOWNLOAD
+        mode = MODE_LIST
         addPosts(title, nzb, mode, description, thumb)
     return
             
@@ -232,10 +228,7 @@ def list_feed_nzb_su(feedUrl):
             thumbid = get_node_value(item, "imdb", NS_NEWZNAB)
             thumb = "http://nzb.su/covers/movies/" + thumbid + "-cover.jpg"
         nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
-        if STREAMING:
-            mode = MODE_LIST
-        else:
-            mode = MODE_DOWNLOAD
+        mode = MODE_LIST
         addPosts(title, nzb, mode, description, thumb)
     return
 
@@ -245,16 +238,12 @@ def addPosts(title, url, mode, description='', thumb='', folder=True):
     xurl = "%s?mode=%s" % (sys.argv[0],mode)
     xurl = xurl + url
     listitem.setPath(xurl)
-    if mode == MODE_LIST or mode == MODE_DOWNLOAD:
+    if mode == MODE_LIST:
         cm = []
-        if STREAMING :
-            cm_mode = MODE_DOWNLOAD
-            cm_label = "Download"
-            if (__settings__.getSetting("auto_play").lower() == "true"):
-                folder = False
-        else:
-            cm_mode = MODE_LIST
-            cm_label = "Stream"
+        cm_mode = MODE_DOWNLOAD
+        cm_label = "Download"
+        if (__settings__.getSetting("auto_play").lower() == "true"):
+            folder = False
         cm_url_download = sys.argv[0] + '?mode=' + cm_mode + url
         cm.append((cm_label , "XBMC.RunPlugin(%s)" % (cm_url_download)))
         listitem.addContextMenuItems(cm, replaceItems=False)
@@ -310,7 +299,7 @@ def listVideo(params):
             xbmc.log(switch)
             progressDialog.create('NZBS', 'Failed to prioritize the nzb!')
             time.sleep(2)
-        progressDialog.close()
+            progressDialog.close()
         # TODO make sure there is also a NZB in the queue
         listFile(nzbname)
 
