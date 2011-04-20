@@ -622,8 +622,6 @@ if (__name__ == "__main__" ):
     if (not sys.argv[2]):
         if __settings__.getSetting("nzbs_enable").lower() == "true":
             nzbs(None)
-        if __settings__.getSetting("nzb_su_enable").lower() == "true":
-            nzb_su(None)
         addPosts('Incomplete', '', MODE_INCOMPLETE)
     else:
         params = getParameters(sys.argv[2])
@@ -640,8 +638,6 @@ if (__name__ == "__main__" ):
             repair(params)
         if get("mode")== MODE_NZBS:
             nzbs(params)
-        if get("mode")== MODE_NZB_SU:
-            nzb_su(params)
         if get("mode")== MODE_INCOMPLETE:
             incomplete()
         if get("mode")== MODE_INCOMPLETE_LIST:
