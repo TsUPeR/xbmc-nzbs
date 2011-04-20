@@ -103,6 +103,7 @@ def nzbs(params):
             catid = get("catid")
             typeid = get("type")
             nzbs = get("nzbs")
+            url = None
             if nzbs:
                 if nzbs == "mynzbs":
                     url = NZBS_URL + "&action=mynzbs"
@@ -122,7 +123,8 @@ def nzbs(params):
                 url = NZBS_URL + "&type=" + typeid
                 key = "&type=" + typeid
                 addPosts('Search...', key, MODE_NZBS_SEARCH, '', '')
-            list_feed_nzbs(url)
+            if url:
+                list_feed_nzbs(url)
         else:
             # if not (catid and typeid):
             # Build Main menu
@@ -191,6 +193,7 @@ def nzb_su(params):
             get = params.get
             catid = get("catid")
             nzb_su = get("nzb.su")
+            url = None
             if nzb_su:
                 if nzb_su == "mycart":
                     url = NZB_SU_URL + "&t=-2"
@@ -203,7 +206,8 @@ def nzb_su(params):
                 url = NZB_SU_URL + "&t=" + catid
                 key = "&catid=" + catid
                 addPosts('Search...', key, MODE_NZB_SU_SEARCH, '', '')
-            list_feed_nzb_su(url)
+            if url:
+                list_feed_nzb_su(url)
         else:
             # if not catid:
             # Build Main menu
@@ -668,11 +672,11 @@ def rarpath_fixer(filepath):
     return filepath
 
 def search(dialog_name):
-    searchString = unikeyboard('', '' )
+    searchString = unikeyboard(__settings__.getSetting( "latestSearch" ), 'Search NZBS')
     if searchString == "":
-        xbmcgui.Dialog().ok('Missing text', 'Second line' )
+        xbmcgui.Dialog().ok('NZBS','Missing text')
     elif searchString:
-        # latestSearch = __settings__.setSetting( "latestSearch", searchString )
+        latestSearch = __settings__.setSetting( "latestSearch", searchString )
         dialogProgress = xbmcgui.DialogProgress()
         dialogProgress.create(dialog_name, 'Searching for: ' , searchString)
         #The XBMC onscreen keyboard outputs utf-8 and this need to be encoded to unicode
@@ -686,7 +690,7 @@ def unikeyboard(default, message):
     if (keyboard.isConfirmed()):
         return keyboard.getText()
     else:
-        return None
+        return ""
 
 if (__name__ == "__main__" ):
     if not (__settings__.getSetting("firstrun") and __settings__.getSetting("sabnzbd_ip") and
