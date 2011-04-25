@@ -145,7 +145,7 @@ def list_feed_nzbs(feedUrl):
     doc = load_xml(feedUrl)
     for item in doc.getElementsByTagName("item"):
         title = get_node_value(item, "title")
-        description = get_node_value(item, "description")
+        description = re.sub('<[^<]+?>', ' ', get_node_value(item, "description"))
         nzb = get_node_value(item, "nzb", NS_REPORT)
         thumbid = item.getElementsByTagNameNS(NS_REPORT, "imdbid")
         thumb = ""
