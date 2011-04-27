@@ -452,7 +452,10 @@ def playVideo(params):
             item.setInfo(type="Video", infoLabels={ "Title": movieFile})
             item.setPath(raruri)
             xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
-        time.sleep(5)
+        wait = 0
+        while (not xbmc.Player().isPlayingVideo()) or wait >= 10:
+            time.sleep(1)
+            wait+= 1
         # if the item is in the queue we remove the temp files
         if not "None" in sab_nzo_id:
             for i in range(10):
