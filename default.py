@@ -232,14 +232,14 @@ def listFile(nzbname):
     iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     progressDialog = xbmcgui.DialogProgress()
-    progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for first rar')
+    progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for download to start')
     if not os.path.exists(folder):
         seconds = 0
         while not os.path.exists(folder):
             time.sleep(1)
             seconds += 1
             label = str(seconds) + " seconds"
-            progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', 'Waiting for download to start', label)
+            progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for download to start', label)
             if progressDialog.iscanceled():
                 break
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
