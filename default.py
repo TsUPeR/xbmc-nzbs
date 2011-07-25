@@ -194,6 +194,7 @@ def listVideo(params):
     nzbname = urllib.unquote_plus(get("nzbname"))
     folder = INCOMPLETE_FOLDER + nzbname
     progressDialog = xbmcgui.DialogProgress()
+    iscanceled = False
     if not os.path.exists(folder):
         addurl = SABNZBD.addurl(nzb, nzbname)
         progressDialog.create('NZBS', 'Sending request to SABnzbd')
@@ -201,23 +202,39 @@ def listVideo(params):
             progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download')
             seconds = 0
             while not SABNZBD.nzo_id(nzbname):
-                time.sleep(1)
-                seconds += 1
                 label = str(seconds) + " seconds"
                 progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download', label)
-                # TODO isCanceled
-            switch = SABNZBD.switch(0,nzbname, '')
-            if not "ok" in switch:
-                xbmc.log(switch)
-                progressDialog.update(0, 'Failed to prioritize the nzb!')
-                time.sleep(2)
-            progressDialog.close()
-            listFile(nzbname)
+                if progressDialog.iscanceled():
+                    #SABnzbd uses nzb url as name until it has downloaded the nzb file
+                    #Trying to delete both the queue and history
+                    pause = SABNZBD.pause(nzb,'')
+                    time.sleep(3)
+                    delete_msg = SABNZBD.delete_queue(nzb,'')
+                    if not "ok" in delete_msg:
+                        xbmc.log(delete_msg)
+                        delete_msg = SABNZBD.delete_history(nzb,'')
+                        if not "ok" in delete_msg:
+                            xbmc.log(delete_msg)
+                    iscanceled = True
+                    break
+                time.sleep(1)
+                seconds += 1
+            if not iscanceled:
+                switch = SABNZBD.switch(0,nzbname, '')
+                if not "ok" in switch:
+                    xbmc.log(switch)
+                    progressDialog.update(0, 'Failed to prioritize the nzb!')
+                    time.sleep(2)
+                progressDialog.close()
+                listFile(nzbname)
+            else:
+                return
         else:
             xbmc.log(addurl)
             progressDialog.update(0, 'Request to SABnzbd failed!')
             time.sleep(2)
             progressDialog.close()
+            return
     else:
         switch = SABNZBD.switch(0,nzbname, '')
         if not "ok" in switch:
