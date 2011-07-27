@@ -348,7 +348,7 @@ def playListitem(file, folder, sab_nzo_id, sab_nzo_id_history):
     movieFile = movie_filename(folder, file)
     xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
     url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
-            "&filename=" + urllib.quote_plus(movieFile) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+            "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
     item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
     item.setInfo(type="Video", infoLabels={ "Title": movieFile})
     item.setPath(url)
