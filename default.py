@@ -312,7 +312,6 @@ def getRar(nzbname):
             seconds += 1
             time.sleep(1)
         if not iscanceled:
-            movieFile = movie_filename(folder, file)
             progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
             if sab_nzo_id:
                 pause = SABNZBD.pause('',sab_nzo_id)
@@ -333,20 +332,20 @@ def getRar(nzbname):
             if (__settings__.getSetting("auto_play").lower() == "true"):
                 video_params = dict()
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
-                video_params['filename'] = urllib.quote_plus(movieFile)
                 video_params['mode'] = MODE_AUTO_PLAY
                 video_params['file'] = urllib.quote_plus(file)
                 video_params['folder'] = urllib.quote_plus(folder)
                 video_params['nzoid'] = str(sab_nzo_id)
                 return playVideo(video_params)
             else:
-                return playListitem(file, folder, movieFile, sab_nzo_id, sab_nzo_id_history)
+                return playListitem(file, folder, sab_nzo_id, sab_nzo_id_history)
         else:
             return
     else:
         return
         
-def playListitem(file, folder, movieFile, sab_nzo_id, sab_nzo_id_history):
+def playListitem(file, folder, sab_nzo_id, sab_nzo_id_history):
+    movieFile = movie_filename(folder, file)
     xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
     url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
             "&filename=" + urllib.quote_plus(movieFile) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
@@ -410,9 +409,6 @@ def list_incomplete(params):
         seconds += 2
         time.sleep(2)
     if not iscanceled:
-        movieFile = movie_filename(folder, file)
-        # DEBUG
-        print movieFile
         if sab_nzo_id:
             progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
             pause = SABNZBD.pause('',sab_nzo_id)
@@ -429,7 +425,7 @@ def list_incomplete(params):
                 progressDialog.update(0, 'Stream request to SABnzbd failed!')
                 time.sleep(2)
             progressDialog.close()
-        return playListitem(file, folder, movieFile, sab_nzo_id, sab_nzo_id_history)
+        return playListitem(file, folder, sab_nzo_id, sab_nzo_id_history)
     else:
         return
 
@@ -442,7 +438,6 @@ def playVideo(params):
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
-    movieFile = get("filename")
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
