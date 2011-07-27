@@ -312,7 +312,7 @@ def getRar(nzbname):
             seconds += 1
             time.sleep(1)
         if not iscanceled:
-            movieFile = RarFile(filepath).namelist()
+            movieFile = movie_filename(folder, file)
             progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
             if sab_nzo_id:
                 pause = SABNZBD.pause('',sab_nzo_id)
@@ -333,7 +333,7 @@ def getRar(nzbname):
             if (__settings__.getSetting("auto_play").lower() == "true"):
                 video_params = dict()
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
-                video_params['filename'] = urllib.quote_plus(movieFile[0])
+                video_params['filename'] = urllib.quote_plus(movieFile)
                 video_params['mode'] = MODE_AUTO_PLAY
                 video_params['file'] = urllib.quote_plus(file)
                 video_params['folder'] = urllib.quote_plus(folder)
@@ -349,9 +349,9 @@ def getRar(nzbname):
 def playListitem(file, folder, movieFile, sab_nzo_id, sab_nzo_id_history):
     xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
     url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
-            "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
-    item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
-    item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
+            "&filename=" + urllib.quote_plus(movieFile) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+    item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
+    item.setInfo(type="Video", infoLabels={ "Title": movieFile})
     item.setPath(url)
     isfolder = False
     item.setProperty("IsPlayable", "true")
@@ -410,7 +410,7 @@ def list_incomplete(params):
         seconds += 2
         time.sleep(2)
     if not iscanceled:
-        movieFile = RarFile(filepath).namelist()
+        movieFile = movie_filename(folder, file)
         # DEBUG
         print movieFile
         if sab_nzo_id:
@@ -463,7 +463,8 @@ def playVideo(params):
                         fd.write(RAR_HEADER)
                         fd.close()
         # lets play the movie
-        raruri = "rar://" + rarpath_fixer(filepath) + "/" + movie_filename(folder, file)
+        movieFile = movie_filename(folder, file)
+        raruri = "rar://" + rarpath_fixer(folder, file) + "/" + movieFile
         if mode == MODE_AUTO_PLAY:
             xbmc.executebuiltin("xbmc.PlayMedia("+raruri+")")
         else:
@@ -623,7 +624,8 @@ def load_xml(url):
     response.close()
     return parseString(xml)
 
-def rarpath_fixer(filepath):
+def rarpath_fixer(folder, file):
+    filepath = os.path.join(folder, file)
     filepath = filepath.replace(".","%2e")
     filepath = filepath.replace("-","%2d")
     filepath = filepath.replace(":","%3a")
