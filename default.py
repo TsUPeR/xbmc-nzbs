@@ -178,17 +178,15 @@ def addPosts(title, url, mode, description='', thumb='', folder=True):
 def getParameters(parameterString):
     commands = {}
     splitCommands = parameterString[parameterString.find('?')+1:].split('&')
-    
     for command in splitCommands: 
         if (len(command) > 0):
             splitCommand = command.split('=')
             name = splitCommand[0]
             value = splitCommand[1]
-            commands[name] = value
-    
+            commands[name] = value  
     return commands
     
-def listVideo(params):
+def getNzb(params):
     get = params.get
     nzb = urllib.unquote_plus(get("nzb"))
     nzbname = urllib.unquote_plus(get("nzbname"))
@@ -226,7 +224,7 @@ def listVideo(params):
                     progressDialog.update(0, 'Failed to prioritize the nzb!')
                     time.sleep(2)
                 progressDialog.close()
-                listFile(nzbname)
+                getRar(nzbname)
             else:
                 return
         else:
@@ -243,9 +241,9 @@ def listVideo(params):
             time.sleep(2)
             progressDialog.close()
         # TODO make sure there is also a NZB in the queue
-        listFile(nzbname)
+        getRar(nzbname)
 
-def listFile(nzbname):
+def getRar(nzbname):
     iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
@@ -664,7 +662,7 @@ if (__name__ == "__main__" ):
         params = getParameters(sys.argv[2])
         get = params.get
         if get("mode")== MODE_LIST:
-            listVideo(params)
+            getNzb(params)
         if get("mode")== MODE_PLAY or get("mode")== MODE_AUTO_PLAY:
             playVideo(params)
         if get("mode")== MODE_DELETE:
