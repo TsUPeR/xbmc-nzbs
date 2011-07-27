@@ -463,8 +463,7 @@ def playVideo(params):
                         fd.write(RAR_HEADER)
                         fd.close()
         # lets play the movie
-        filepath = os.path.join(folder, file)
-        raruri = "rar://" + rarpath_fixer(filepath) + "/" + movieFile
+        raruri = "rar://" + rarpath_fixer(filepath) + "/" + movie_filename(folder, file)
         if mode == MODE_AUTO_PLAY:
             xbmc.executebuiltin("xbmc.PlayMedia("+raruri+")")
         else:
@@ -500,6 +499,23 @@ def playVideo(params):
         time.sleep(1)
         xbmc.executebuiltin("Action(ParentDir)")
     return
+
+def movie_filename(folder, file):
+    filepath = os.path.join(folder, file)
+    movieFileList = sort_filename(RarFile(filepath).namelist())
+    #TODO Only pick first file in the list. Have no examples of multi file archives
+    return movieFileList[0]
+
+def sort_filename(filenameList):
+    outList = filenameList
+    if len(filenameList) == 1:
+        return outList
+    else:
+        for i in len(filenameList):
+            # TODO more file types
+            if not ".avi" or ".mkv" in filenameList[i]:
+                del outList[i]
+        return outList.sort()
 
 def delete(params):
     get = params.get
