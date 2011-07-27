@@ -340,26 +340,29 @@ def getRar(nzbname):
                 video_params['nzoid'] = str(sab_nzo_id)
                 return playVideo(video_params)
             else:
-                xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-                url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
-                        "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
-                item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
-                item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
-                item.setPath(url)
-                isfolder = False
-                item.setProperty("IsPlayable", "true")
-                cm = []
-                if sab_nzo_id_history:
-                    cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-                    cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
-                cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-                cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
-                item.addContextMenuItems(cm, replaceItems=True)
-                return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+                return playListitem(file, folder, movieFile, sab_nzo_id, sab_nzo_id_history)
         else:
             return
     else:
         return
+        
+def playListitem(file, folder, movieFile, sab_nzo_id, sab_nzo_id_history):
+    xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
+    url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
+            "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+    item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
+    item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
+    item.setPath(url)
+    isfolder = False
+    item.setProperty("IsPlayable", "true")
+    cm = []
+    if sab_nzo_id_history:
+        cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+        cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
+    cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+    cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
+    item.addContextMenuItems(cm, replaceItems=True)
+    return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
 
 def list_incomplete(params):
     iscanceled = False
@@ -426,22 +429,7 @@ def list_incomplete(params):
                 progressDialog.update(0, 'Stream request to SABnzbd failed!')
                 time.sleep(2)
             progressDialog.close()
-        xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-        url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
-                    "&filename=" + urllib.quote_plus(movieFile[0]) + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
-        item = xbmcgui.ListItem(movieFile[0], iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movieFile[0]})
-        item.setPath(url)
-        isfolder = False
-        item.setProperty("IsPlayable", "true")
-        cm = []
-        if sab_nzo_id_history:
-            cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-            cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
-        cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-        cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
-        item.addContextMenuItems(cm, replaceItems=True)
-        return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+        return playListitem(file, folder, movieFile, sab_nzo_id, sab_nzo_id_history)
     else:
         return
 
