@@ -184,6 +184,16 @@ class sabnzbd(object):
             limit = limit + 20
         return nzbname_list
 
+    def file_list(self, id=''):
+        url = self.baseurl + "&mode=get_files&output=xml&value=" + str(id)
+        doc = _load_xml(url)
+        file_list = []
+        if doc.getElementsByTagName("file"):
+            for file in doc.getElementsByTagName("file"):
+                filename = get_node_value(file, "filename")
+                file_list.append(filename)
+        return file_list
+
 def get_node_value(parent, name, ns=""):
     if ns:
         return parent.getElementsByTagNameNS(ns, name)[0].childNodes[0].data
