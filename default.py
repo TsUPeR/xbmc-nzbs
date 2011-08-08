@@ -250,6 +250,7 @@ def getRar(nzbname):
     if not sab_nzo_id:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
     else:
+        file_list = SABNZBD.file_list(sab_nzo_id)
         sab_nzo_id_history = None
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for download to start')
@@ -329,6 +330,9 @@ def getRar(nzbname):
                     time.sleep(1)
             progressDialog.close()
             time.sleep(1)
+            #Support for multiple archives
+            #let file be a list and queue item 2,3,4.. in playVideo
+            # file = sorted_file_list(file_list)
             if (__settings__.getSetting("auto_play").lower() == "true"):
                 video_params = dict()
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
@@ -503,15 +507,17 @@ def movie_filename(folder, file):
     return movieFileList[0]
 
 def sort_filename(filenameList):
-    outList = filenameList
+    outList = filenameList[:]
     if len(filenameList) == 1:
         return outList
     else:
-        for i in len(filenameList):
+        for i in range(len(filenameList)):
             # TODO more file types
-            if not ".avi" or ".mkv" in filenameList[i]:
-                del outList[i]
-        return outList.sort()
+            if not ".avi" or not ".mkv" in filenameList[i]:
+                outList.remove(filenameList[i])
+        if len(outList) == 0:
+            outList.append(filenameList[0])
+        return outList
 
 def delete(params):
     get = params.get
