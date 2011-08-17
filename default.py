@@ -244,6 +244,7 @@ def getNzb(params):
         getRar(nzbname)
 
 def getRar(nzbname):
+    iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
     file_list = []
@@ -396,8 +397,8 @@ def list_incomplete(params):
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
     folder = INCOMPLETE_FOLDER + nzbname
+    progressDialog = xbmcgui.DialogProgress()
     if sab_nzo_id:
-        progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'Waiting for first rar')
     file, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history)
     if not iscanceled:
