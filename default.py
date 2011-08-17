@@ -244,13 +244,13 @@ def getNzb(params):
         getRar(nzbname)
 
 def getRar(nzbname):
-    iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
+    file_list = []
     if not sab_nzo_id:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
     else:
-        file_list = SABNZBD.file_list(sab_nzo_id)
+        file_list = sorted_rar_file_list(SABNZBD.file_list(sab_nzo_id))
         sab_nzo_id_history = None
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for download to start')
@@ -279,39 +279,7 @@ def getRar(nzbname):
             time.sleep(1)
             seconds += 1
     if not iscanceled:
-        size = -1
-        rar = False
-        seconds = 0
-        while not rar:
-            for file in os.listdir(folder):
-                partrar = re.findall(RE_PART, file)
-                if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
-                    filepath = os.path.join(folder, file)
-                    if size == os.path.getsize(filepath):
-                        rar = True
-                        break
-                    size = os.path.getsize(filepath)
-            label = str(seconds) + " seconds"
-            progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for first rar', label)
-            if progressDialog.iscanceled():
-                dialog = xbmcgui.Dialog()
-                ret = dialog.select('What do you want to do?', ['Delete job', 'Just download'])
-                if ret == 0:
-                    if sab_nzo_id:
-                        pause = SABNZBD.pause('',sab_nzo_id)
-                        time.sleep(3)
-                        delete_ = SABNZBD.delete_queue('',sab_nzo_id)
-                    else:
-                        delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
-                    if not "ok" in delete_:
-                        xbmc.log(delete_)
-                    iscanceled = True
-                    break
-                if ret == 1:
-                    iscanceled = True
-                    break
-            seconds += 1
-            time.sleep(1)
+        file, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, 'Request to SABnzbd succeeded')
         if not iscanceled:
             progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
             if sab_nzo_id:
@@ -338,20 +306,32 @@ def getRar(nzbname):
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
                 video_params['mode'] = MODE_AUTO_PLAY
                 video_params['file'] = urllib.quote_plus(file)
+                #DEBUG file_list must be transformed.
+                video_params['file_list'] = urllib.quote_plus(file_list[0])
                 video_params['folder'] = urllib.quote_plus(folder)
                 video_params['nzoid'] = str(sab_nzo_id)
                 return playVideo(video_params)
             else:
-                return playListitem(file, folder, sab_nzo_id, sab_nzo_id_history)
+                return playListitem(file, file_list, folder, sab_nzo_id, sab_nzo_id_history)
         else:
             return
     else:
         return
-        
-def playListitem(file, folder, sab_nzo_id, sab_nzo_id_history):
+
+def sorted_rar_file_list(rar_file_list):
+    file_list = []
+    for file in rar_file_list:
+        partrar = re.findall(RE_PART, file)
+        if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
+            file_list.append(file)
+    if len(file_list) > 1:
+        file_list.sort()
+    return file_list
+
+def playListitem(file, file_list, folder, sab_nzo_id, sab_nzo_id_history):
     movieFile = movie_filename(folder, file)
     xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-    url = (xurl + "&file=" + urllib.quote_plus(file) + "&folder=" + urllib.quote_plus(folder) + 
+    url = (xurl + "&file=" + urllib.quote_plus(file) + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
             "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
     item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
     item.setInfo(type="Video", infoLabels={ "Title": movieFile})
@@ -367,21 +347,13 @@ def playListitem(file, folder, sab_nzo_id, sab_nzo_id_history):
     item.addContextMenuItems(cm, replaceItems=True)
     return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
 
-def list_incomplete(params):
-    iscanceled = False
-    get = params.get
-    nzbname = get("nzbname")
-    nzbname = urllib.unquote_plus(nzbname)
-    sab_nzo_id = get("nzoid")
-    sab_nzo_id_history = get("nzoidhistory")
-    folder = INCOMPLETE_FOLDER + nzbname
-    if sab_nzo_id:
-        progressDialog = xbmcgui.DialogProgress()
-        progressDialog.create('NZBS', 'Waiting for first rar')
+def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_string = None):
+    isCanceled = False
     rar = False
     size = -1
     seconds = 0
     while not rar:
+        #TODO CD2 are found. os.listdir: Return a list containing the names of the entries in the directory given by path. The list is in arbitrary order.
         for file in os.listdir(folder):
             partrar = re.findall(RE_PART, file)
             if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
@@ -392,7 +364,10 @@ def list_incomplete(params):
                 size = os.path.getsize(filepath)
         label = str(seconds) + " seconds"
         if sab_nzo_id:
-            progressDialog.update(0, 'Waiting for first rar', label)
+            if dialog_string:
+                progressDialog.update(0, dialog_string, 'Waiting for first rar', label)
+            else:
+                progressDialog.update(0, 'Waiting for first rar', label)
             if progressDialog.iscanceled():
                 dialog = xbmcgui.Dialog()
                 ret = dialog.select('What do you want to do?', ['Delete job', 'Just download'])
@@ -410,8 +385,21 @@ def list_incomplete(params):
                 if ret == 1:
                     iscanceled = True
                     break
-        seconds += 2
-        time.sleep(2)
+        seconds += 1
+        time.sleep(1)
+    return file, isCanceled
+
+def list_incomplete(params):
+    get = params.get
+    nzbname = get("nzbname")
+    nzbname = urllib.unquote_plus(nzbname)
+    sab_nzo_id = get("nzoid")
+    sab_nzo_id_history = get("nzoidhistory")
+    folder = INCOMPLETE_FOLDER + nzbname
+    if sab_nzo_id:
+        progressDialog = xbmcgui.DialogProgress()
+        progressDialog.create('NZBS', 'Waiting for first rar')
+    file, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history)
     if not iscanceled:
         if sab_nzo_id:
             progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
@@ -429,7 +417,8 @@ def list_incomplete(params):
                 progressDialog.update(0, 'Stream request to SABnzbd failed!')
                 time.sleep(2)
             progressDialog.close()
-        return playListitem(file, folder, sab_nzo_id, sab_nzo_id_history)
+        file_list = sorted_rar_file_list(os.listdir(folder))
+        return playListitem(file, file_list, folder, sab_nzo_id, sab_nzo_id_history)
     else:
         return
 
@@ -438,6 +427,8 @@ def playVideo(params):
     mode = get("mode")
     file = get("file")
     file = urllib.unquote_plus(file)
+    file_list = get("file_list")
+    file_list = urllib.unquote_plus(file_list)
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
@@ -490,7 +481,9 @@ def playVideo(params):
                                 os.rename(filename_one, filename)
             resume = SABNZBD.resume('', sab_nzo_id)
             if not "ok" in resume:
-                xbmc.log(resume)  
+                xbmc.log(resume)
+        #TODO
+        # queue the file to play from file_list
     else:
         progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'File deleted')
