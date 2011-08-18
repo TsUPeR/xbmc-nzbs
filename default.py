@@ -43,6 +43,7 @@ __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
 
 RE_PART = '.part\d\d.rar'
+RE_CD = '(dvd|cd|bluray)1'
 RAR_HEADER = "Rar!\x1a\x07\x00"
 
 NS_MEDIA = "http://search.yahoo.com/mrss/"
@@ -485,8 +486,7 @@ def playVideo(params):
             resume = SABNZBD.resume('', sab_nzo_id)
             if not "ok" in resume:
                 xbmc.log(resume)
-        #TODO
-        # queue the file to play from file_list
+        add_to_playlist(file, folder)
     else:
         progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'File deleted')
@@ -494,6 +494,16 @@ def playVideo(params):
         progressDialog.close()
         time.sleep(1)
         xbmc.executebuiltin("Action(ParentDir)")
+    return
+
+def add_to_playlist(file, folder):
+    fileStr = str(file)
+    RE_CD_obj = re.compile(RE_CD, re.IGNORECASE)
+    file2str = RE_CD_obj.sub(r"\g<1>2", fileStr)
+    if not fileStr == file2str:
+        playlist = xbmc.PlayList( xbmc.PLAYLIST_VIDEO )
+        url = sys.argv[0] + '?' + "mode=auto_play" + "&file=" + urllib.quote_plus(file2str) + "&file_list=" + "&folder=" + urllib.quote_plus(folder) + "&nzoid=None" + "&nzoidhistory=None"
+        playlist.add(url)
     return
 
 def movie_filename(folder, file):
