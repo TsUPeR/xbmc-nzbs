@@ -307,8 +307,7 @@ def getRar(nzbname):
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
                 video_params['mode'] = MODE_AUTO_PLAY
                 video_params['file'] = urllib.quote_plus(file)
-                #DEBUG file_list must be transformed.
-                video_params['file_list'] = urllib.quote_plus(file_list[0])
+                video_params['file_list'] = urllib.quote_plus(';'.join(file_list))
                 video_params['folder'] = urllib.quote_plus(folder)
                 video_params['nzoid'] = str(sab_nzo_id)
                 return playVideo(video_params)
