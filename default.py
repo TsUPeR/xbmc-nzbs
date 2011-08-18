@@ -354,15 +354,18 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
     size = -1
     seconds = 0
     while not rar:
-        #TODO CD2 are found. os.listdir: Return a list containing the names of the entries in the directory given by path. The list is in arbitrary order.
-        for file in os.listdir(folder):
+        dirList = sorted_rar_file_list(os.listdir(folder))
+        for file in dirList:
             partrar = re.findall(RE_PART, file)
             if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
                 filepath = os.path.join(folder, file)
-                if size == os.path.getsize(filepath):
+                sizeLater = os.path.getsize(filepath)
+                if size == sizeLater:
                     rar = True
                     break
-                size = os.path.getsize(filepath)
+                else:
+                    size = sizeLater
+                    break
         label = str(seconds) + " seconds"
         if sab_nzo_id:
             if dialog_string:
