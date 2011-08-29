@@ -174,6 +174,11 @@ def addPosts(title, url, mode, description='', thumb='', folder=True):
         cm_url_download = sys.argv[0] + '?mode=' + cm_mode + url
         cm.append((cm_label , "XBMC.RunPlugin(%s)" % (cm_url_download)))
         listitem.addContextMenuItems(cm, replaceItems=False)
+    if mode == MODE_INCOMPLETE_LIST:
+        cm = []
+        cm_url_delete = sys.argv[0] + '?' + "mode=delete&incomplete=True" + url + "&folder=" + urllib.quote_plus(title)
+        cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
+        listitem.addContextMenuItems(cm, replaceItems=False)
     return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=xurl, listitem=listitem, isFolder=folder)
  
 # FROM plugin.video.youtube.beta  -- converts the request url passed on by xbmc to our plugin into a dict  
@@ -541,33 +546,37 @@ def delete(params):
     sab_nzo_id_history = get("nzoidhistory")
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
-    progressDialog = xbmcgui.DialogProgress()
-    progressDialog.create('NZBS', 'Deleting')
-    if not "None" in sab_nzo_id:
-        pause = SABNZBD.pause('',sab_nzo_id)
-        time.sleep(3)
-        if "ok" in pause:
-            delete_ = SABNZBD.delete_queue('',sab_nzo_id)
-            if "ok" in delete_:
-                progressDialog.update(100, 'Deletion', 'Succeeded')
-            else:
-                xbmc.log(delete_)
-                progressDialog.update(0, 'Deletion failed!')
-        else:
-            progressDialog.update(0, 'Deletion failed!')
-    elif not "None" in sab_nzo_id_history:
-        delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
-        if "ok" in delete_:
-            progressDialog.update(100, 'Deletion', 'Succeeded')
-        else:
-            xbmc.log(delete_)
-            progressDialog.update(0, 'Deletion failed!')
+    incomplete = get("incomplete")
+    xbmc.executebuiltin('Notification("NZBS","Deleting '+ folder +'")')
+    if sab_nzo_id or sab_nzo_id_history:
+        if sab_nzo_id:
+            if not "None" in sab_nzo_id:
+                pause = SABNZBD.pause('',sab_nzo_id)
+                time.sleep(3)
+                if "ok" in pause:
+                    delete_ = SABNZBD.delete_queue('',sab_nzo_id)
+                    if "ok" in delete_:
+                        xbmc.executebuiltin('Notification("NZBS","Deleting succeeded")')
+                    else:
+                        xbmc.log(delete_)
+                        xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
+                else:
+                    xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
+        if  sab_nzo_id_history:
+            if not "None" in sab_nzo_id_history:
+                delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
+                if "ok" in delete_:
+                    xbmc.executebuiltin('Notification("NZBS","Deleting succeeded")')
+                else:
+                    xbmc.log(delete_)
+                    xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
     else:
-        progressDialog.update(0, 'Deletion failed!')
+        xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
     time.sleep(2)
-    progressDialog.close()
-    time.sleep(1)
-    xbmc.executebuiltin("Action(ParentDir)")
+    if incomplete:
+        xbmc.executebuiltin("Container.Refresh")
+    else:
+        xbmc.executebuiltin("Action(ParentDir)")
     return
 
 def download(params):
