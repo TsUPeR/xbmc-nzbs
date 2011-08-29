@@ -44,6 +44,7 @@ __language__ = __settings__.getLocalizedString
 
 RE_PART = '.part\d\d.rar'
 RE_CD = '(dvd|cd|bluray)1'
+RE_MOVIE = '\.avi$|\.mkv'
 RAR_HEADER = "Rar!\x1a\x07\x00"
 
 NS_MEDIA = "http://search.yahoo.com/mrss/"
@@ -57,6 +58,7 @@ SABNZBD = sabnzbd(__settings__.getSetting("sabnzbd_ip"),
 INCOMPLETE_FOLDER = __settings__.getSetting("sabnzbd_incomplete")
 
 MODE_LIST = "list"
+MODE_MOVIE_LIST = "movie_list"
 MODE_DOWNLOAD = "download"
 MODE_PLAY = "play"
 MODE_AUTO_PLAY = "auto_play"
@@ -309,17 +311,27 @@ def getRar(nzbname):
             #Support for multiple archives
             #let file be a list and queue item 2,3,4.. in playVideo
             # file = sorted_file_list(file_list)
-            if (__settings__.getSetting("auto_play").lower() == "true"):
+            #DEBUG
+            movie_list = movie_filename_s(folder, file)
+            auto_play = __settings__.getSetting("auto_play").lower() 
+            if ( auto_play == "true") and (len(movie_list) == 1):
                 video_params = dict()
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
                 video_params['mode'] = MODE_AUTO_PLAY
                 video_params['file'] = urllib.quote_plus(file)
+                video_params['movie'] = urllib.quote_plus(movie_list[0])
                 video_params['file_list'] = urllib.quote_plus(';'.join(file_list))
                 video_params['folder'] = urllib.quote_plus(folder)
                 video_params['nzoid'] = str(sab_nzo_id)
                 return playVideo(video_params)
+            elif ( auto_play == "true"):
+                xurl = "%s?mode=%s" % (sys.argv[0],MODE_MOVIE_LIST)
+                url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie_list=" + urllib.quote_plus(';'.join(movie_list)) + "&file_list=" +
+                      urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
+                      "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+                xbmc.executebuiltin("Container.Update("+url+")")
             else:
-                return playListitem(file, file_list, folder, sab_nzo_id, sab_nzo_id_history)
+                return playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
         else:
             return
     else:
@@ -335,24 +347,26 @@ def sorted_rar_file_list(rar_file_list):
         file_list.sort()
     return file_list
 
-def playListitem(file, file_list, folder, sab_nzo_id, sab_nzo_id_history):
-    movieFile = movie_filename(folder, file)
-    xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-    url = (xurl + "&file=" + urllib.quote_plus(file) + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
-            "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
-    item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
-    item.setInfo(type="Video", infoLabels={ "Title": movieFile})
-    item.setPath(url)
-    isfolder = False
-    item.setProperty("IsPlayable", "true")
-    cm = []
-    if sab_nzo_id_history:
-        cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-        cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
-    cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
-    cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
-    item.addContextMenuItems(cm, replaceItems=True)
-    return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+def playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history):
+    for movie in movie_list:
+        xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
+        url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie=" + urllib.quote_plus(movie) + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
+                "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+        item = xbmcgui.ListItem(movie, iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": movie})
+        item.setPath(url)
+        isfolder = False
+        item.setProperty("IsPlayable", "true")
+        cm = []
+        if sab_nzo_id_history:
+            cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+            cm.append(("Repair" , "XBMC.RunPlugin(%s)" % (cm_url_repair)))
+        cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
+        cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
+        item.addContextMenuItems(cm, replaceItems=True)
+        xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+    return 
 
 def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_string = None):
     isCanceled = False
@@ -399,6 +413,23 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
         time.sleep(1)
     return file, isCanceled
 
+def list_movie(params):
+    get = params.get
+    mode = get("mode")
+    file = get("file")
+    file = urllib.unquote_plus(file)
+    file_list = get("file_list")
+    file_list = urllib.unquote_plus(file_list)
+    movie_list = get("movie_list")
+    movie_list = urllib.unquote_plus(movie_list)
+    #TODO
+    # Fix the list
+    folder = get("folder")
+    folder = urllib.unquote_plus(folder)
+    sab_nzo_id = get("nzoid")
+    sab_nzo_id_history = get("nzoidhistory")
+    return playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
+
 def list_incomplete(params):
     get = params.get
     nzbname = get("nzbname")
@@ -428,7 +459,8 @@ def list_incomplete(params):
                 time.sleep(2)
             progressDialog.close()
         file_list = sorted_rar_file_list(os.listdir(folder))
-        return playListitem(file, file_list, folder, sab_nzo_id, sab_nzo_id_history)
+        movie_list = movie_filename_s(folder, file)
+        return playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
     else:
         return
 
@@ -439,6 +471,8 @@ def playVideo(params):
     file = urllib.unquote_plus(file)
     file_list = get("file_list")
     file_list = urllib.unquote_plus(file_list)
+    movie = get("movie")
+    movie = urllib.unquote_plus(movie)
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
@@ -463,12 +497,15 @@ def playVideo(params):
                         fd.write(RAR_HEADER)
                         fd.close()
         # lets play the movie
-        movieFile = movie_filename(folder, file)
-        raruri = "rar://" + rarpath_fixer(folder, file) + "/" + movieFile
-        item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movieFile})
+        if not movie:
+            movie = movie_filename_s(folder, file)[0]
+        raruri = "rar://" + rarpath_fixer(folder, file) + "/" + movie
+        item = xbmcgui.ListItem(movie, iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": movie})
         item.setPath(raruri)
         item.setProperty("IsPlayable", "true")
+        #DEBUG
+        xbmcplugin.setContent(int(sys.argv[1]), 'movies')
         if mode == MODE_AUTO_PLAY:
             xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
         else:
@@ -517,7 +554,7 @@ def add_to_playlist(file, folder):
         item.setInfo(type="Video", infoLabels={ "Title": file2str})
         item.setProperty("IsPlayable", "true")
         position = playlist.getposition() + 1
-        url = sys.argv[0] + '?' + "mode=play" + "&file=" + urllib.quote_plus(file2str) + "&file_list=" + "&folder=" + urllib.quote_plus(folder) + "&nzoid=Blank" + "&nzoidhistory=Blank"
+        url = sys.argv[0] + '?' + "mode=play" + "&file=" + urllib.quote_plus(file2str) + "&movie=" + "&file_list=" + "&folder=" + urllib.quote_plus(folder) + "&nzoid=Blank" + "&nzoidhistory=Blank"
         playlist.add(url, item, position)
     return
 
@@ -526,15 +563,21 @@ def movie_filename(folder, file):
     movieFileList = sort_filename(RarFile(filepath).namelist())
     #TODO Only pick first file in the list. Have no examples of multi file archives
     return movieFileList[0]
+#DEBUG
+def movie_filename_s(folder, file):
+    filepath = os.path.join(folder, file)
+    movieFileList = sort_filename(RarFile(filepath).namelist())
+    return movieFileList
 
 def sort_filename(filenameList):
     outList = filenameList[:]
     if len(filenameList) == 1:
+        print outList
         return outList
     else:
         for i in range(len(filenameList)):
-            # TODO more file types
-            if not ".avi" or not ".mkv" in filenameList[i]:
+            match = re.search(RE_MOVIE, filenameList[i], re.IGNORECASE)
+            if not match:
                 outList.remove(filenameList[i])
         if len(outList) == 0:
             outList.append(filenameList[0])
@@ -695,6 +738,8 @@ if (__name__ == "__main__" ):
         get = params.get
         if get("mode")== MODE_LIST:
             getNzb(params)
+        if get("mode")== MODE_MOVIE_LIST:
+            list_movie(params)
         if get("mode")== MODE_PLAY or get("mode")== MODE_AUTO_PLAY:
             playVideo(params)
         if get("mode")== MODE_DELETE:
