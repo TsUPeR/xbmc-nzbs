@@ -156,6 +156,7 @@ def list_feed_nzbs(feedUrl):
         nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
         mode = MODE_LIST
         addPosts(title, nzb, mode, description, thumb)
+    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
     return
 
 def addPosts(title, url, mode, description='', thumb='', folder=True):
@@ -459,17 +460,22 @@ def playVideo(params):
         # lets play the movie
         movieFile = movie_filename(folder, file)
         raruri = "rar://" + rarpath_fixer(folder, file) + "/" + movieFile
+        item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": movieFile})
+        item.setPath(raruri)
+        item.setProperty("IsPlayable", "true")
         if mode == MODE_AUTO_PLAY:
-            xbmc.executebuiltin("xbmc.PlayMedia("+raruri+")")
+            xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
         else:
-            item = xbmcgui.ListItem(movieFile, iconImage='', thumbnailImage='')
-            item.setInfo(type="Video", infoLabels={ "Title": movieFile})
-            item.setPath(raruri)
             xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         wait = 0
-        while (not xbmc.Player().isPlayingVideo()) or wait >= 10:
+        # TODO if from playlist sleep, needed for xbmc to manage the switch
+        time.sleep(3)
+        while (wait <= 10):
             time.sleep(1)
             wait+= 1
+            if xbmc.Player().isPlayingVideo():
+                break
         # if the item is in the queue we remove the temp files
         if not "None" in sab_nzo_id:
             for i in range(10):
@@ -501,9 +507,13 @@ def add_to_playlist(file, folder):
     RE_CD_obj = re.compile(RE_CD, re.IGNORECASE)
     file2str = RE_CD_obj.sub(r"\g<1>2", fileStr)
     if not fileStr == file2str:
-        playlist = xbmc.PlayList( xbmc.PLAYLIST_VIDEO )
-        url = sys.argv[0] + '?' + "mode=auto_play" + "&file=" + urllib.quote_plus(file2str) + "&file_list=" + "&folder=" + urllib.quote_plus(folder) + "&nzoid=None" + "&nzoidhistory=None"
-        playlist.add(url)
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+        item = xbmcgui.ListItem(file2str, iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": file2str})
+        item.setProperty("IsPlayable", "true")
+        position = playlist.getposition() + 1
+        url = sys.argv[0] + '?' + "mode=play" + "&file=" + urllib.quote_plus(file2str) + "&file_list=" + "&folder=" + urllib.quote_plus(folder) + "&nzoid=Blank" + "&nzoidhistory=Blank"
+        playlist.add(url, item, position)
     return
 
 def movie_filename(folder, file):
