@@ -308,10 +308,6 @@ def getRar(nzbname):
                     time.sleep(1)
             progressDialog.close()
             time.sleep(1)
-            #Support for multiple archives
-            #let file be a list and queue item 2,3,4.. in playVideo
-            # file = sorted_file_list(file_list)
-            #DEBUG
             movie_list = movie_filenames(folder, file)
             auto_play = __settings__.getSetting("auto_play").lower() 
             if ( auto_play == "true") and (len(movie_list) == 1):
@@ -324,7 +320,7 @@ def getRar(nzbname):
                 video_params['folder'] = urllib.quote_plus(folder)
                 video_params['nzoid'] = str(sab_nzo_id)
                 return playVideo(video_params)
-            elif ( auto_play == "true"):
+            elif (auto_play == "true"):
                 xurl = "%s?mode=%s" % (sys.argv[0],MODE_MOVIE_LIST)
                 url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie_list=" + urllib.quote_plus(';'.join(movie_list)) + "&file_list=" +
                       urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
@@ -499,14 +495,12 @@ def playVideo(params):
         item.setInfo(type="Video", infoLabels={ "Title": movie})
         item.setPath(raruri)
         item.setProperty("IsPlayable", "true")
-        #DEBUG
         xbmcplugin.setContent(int(sys.argv[1]), 'movies')
         if mode == MODE_AUTO_PLAY:
             xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
         else:
             xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         wait = 0
-        # TODO if from playlist sleep, needed for xbmc to manage the switch
         time.sleep(3)
         while (wait <= 10):
             time.sleep(1)
@@ -561,7 +555,6 @@ def movie_filenames(folder, file):
 def sort_filename(filenameList):
     outList = filenameList[:]
     if len(filenameList) == 1:
-        print outList
         return outList
     else:
         for i in range(len(filenameList)):
