@@ -312,7 +312,7 @@ def getRar(nzbname):
             #let file be a list and queue item 2,3,4.. in playVideo
             # file = sorted_file_list(file_list)
             #DEBUG
-            movie_list = movie_filename_s(folder, file)
+            movie_list = movie_filenames(folder, file)
             auto_play = __settings__.getSetting("auto_play").lower() 
             if ( auto_play == "true") and (len(movie_list) == 1):
                 video_params = dict()
@@ -416,14 +416,9 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
 def list_movie(params):
     get = params.get
     mode = get("mode")
-    file = get("file")
-    file = urllib.unquote_plus(file)
-    file_list = get("file_list")
-    file_list = urllib.unquote_plus(file_list)
-    movie_list = get("movie_list")
-    movie_list = urllib.unquote_plus(movie_list)
-    #TODO
-    # Fix the list
+    file = urllib.unquote_plus(get("file"))
+    file_list = urllib.unquote_plus(get("file_list"))
+    movie_list = urllib.unquote_plus(get("movie_list")).split(";")
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
@@ -459,7 +454,7 @@ def list_incomplete(params):
                 time.sleep(2)
             progressDialog.close()
         file_list = sorted_rar_file_list(os.listdir(folder))
-        movie_list = movie_filename_s(folder, file)
+        movie_list = movie_filenames(folder, file)
         return playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
     else:
         return
@@ -498,7 +493,7 @@ def playVideo(params):
                         fd.close()
         # lets play the movie
         if not movie:
-            movie = movie_filename_s(folder, file)[0]
+            movie = movie_filenames(folder, file)[0]
         raruri = "rar://" + rarpath_fixer(folder, file) + "/" + movie
         item = xbmcgui.ListItem(movie, iconImage='', thumbnailImage='')
         item.setInfo(type="Video", infoLabels={ "Title": movie})
@@ -558,13 +553,7 @@ def add_to_playlist(file, folder):
         playlist.add(url, item, position)
     return
 
-def movie_filename(folder, file):
-    filepath = os.path.join(folder, file)
-    movieFileList = sort_filename(RarFile(filepath).namelist())
-    #TODO Only pick first file in the list. Have no examples of multi file archives
-    return movieFileList[0]
-#DEBUG
-def movie_filename_s(folder, file):
+def movie_filenames(folder, file):
     filepath = os.path.join(folder, file)
     movieFileList = sort_filename(RarFile(filepath).namelist())
     return movieFileList
