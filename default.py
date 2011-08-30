@@ -310,7 +310,7 @@ def getRar(nzbname):
             time.sleep(1)
             movie_list = movie_filenames(folder, file)
             auto_play = __settings__.getSetting("auto_play").lower() 
-            if ( auto_play == "true") and (len(movie_list) == 1):
+            if ( auto_play == "true") and (len(movie_list) == 1) and (len(file_list) == 1):
                 video_params = dict()
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
                 video_params['mode'] = MODE_AUTO_PLAY
