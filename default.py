@@ -121,15 +121,14 @@ def nzbs(params):
             elif catid:
                 url = NZBS_URL + "&catid=" + catid
                 key = "&catid=" + catid
-                addPosts('Search...', key, MODE_NZBS_SEARCH, '', '')
+                add_posts('Search...', key, MODE_NZBS_SEARCH, '', '')
             else:
                 url = NZBS_URL + "&type=" + typeid
                 key = "&type=" + typeid
-                addPosts('Search...', key, MODE_NZBS_SEARCH, '', '')
+                add_posts('Search...', key, MODE_NZBS_SEARCH, '', '')
             if url:
                 list_feed_nzbs(url)
         else:
-            # if not (catid and typeid):
             # Build Main menu
             for name, type, catid in TABLE_NZBS:
                 if ("XXX" in name) and (__settings__.getSetting("nzbs_hide_xxx").lower() == "true"):
@@ -138,10 +137,10 @@ def nzbs(params):
                     key = "&type=" + str(catid)
                 else:
                     key = "&catid=" + str(catid)
-                addPosts(name, key, MODE_NZBS, '', '')
+                add_posts(name, key, MODE_NZBS, '', '')
             # TODO add settings toggle
-            addPosts("My NZB\'s", '', MODE_NZBS_MY, '', '')
-            addPosts("My Searches", '', MODE_NZBS_MYSEARCH, '', '')
+            add_posts("My NZB\'s", '', MODE_NZBS_MY, '', '')
+            add_posts("My Searches", '', MODE_NZBS_MYSEARCH, '', '')
     return
 
 def list_feed_nzbs(feedUrl):
@@ -157,11 +156,11 @@ def list_feed_nzbs(feedUrl):
             thumb = "http://www.nzbs.org/imdb/" + thumbid + ".jpg"
         nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
         mode = MODE_LIST
-        addPosts(title, nzb, mode, description, thumb)
+        add_posts(title, nzb, mode, description, thumb)
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
     return
 
-def addPosts(title, url, mode, description='', thumb='', folder=True):
+def add_posts(title, url, mode, description='', thumb='', folder=True):
     listitem=xbmcgui.ListItem(title, iconImage="DefaultFolder.png", thumbnailImage=thumb)
     listitem.setInfo(type="Video", infoLabels={ "Title": title, "Plot" : description })
     xurl = "%s?mode=%s" % (sys.argv[0],mode)
@@ -184,7 +183,7 @@ def addPosts(title, url, mode, description='', thumb='', folder=True):
     return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=xurl, listitem=listitem, isFolder=folder)
  
 # FROM plugin.video.youtube.beta  -- converts the request url passed on by xbmc to our plugin into a dict  
-def getParameters(parameterString):
+def get_parameters(parameterString):
     commands = {}
     splitCommands = parameterString[parameterString.find('?')+1:].split('&')
     for command in splitCommands: 
@@ -195,7 +194,7 @@ def getParameters(parameterString):
             commands[name] = value  
     return commands
     
-def getNzb(params):
+def get_nzb(params):
     get = params.get
     nzb = urllib.unquote_plus(get("nzb"))
     nzbname = urllib.unquote_plus(get("nzbname"))
@@ -233,7 +232,7 @@ def getNzb(params):
                     progressDialog.update(0, 'Failed to prioritize the nzb!')
                     time.sleep(2)
                 progressDialog.close()
-                getRar(nzbname)
+                get_rar(nzbname)
             else:
                 return
         else:
@@ -250,9 +249,9 @@ def getNzb(params):
             time.sleep(2)
             progressDialog.close()
         # TODO make sure there is also a NZB in the queue
-        getRar(nzbname)
+        get_rar(nzbname)
 
-def getRar(nzbname):
+def get_rar(nzbname):
     iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
@@ -319,7 +318,7 @@ def getRar(nzbname):
                 video_params['file_list'] = urllib.quote_plus(';'.join(file_list))
                 video_params['folder'] = urllib.quote_plus(folder)
                 video_params['nzoid'] = str(sab_nzo_id)
-                return playVideo(video_params)
+                return play_video(video_params)
             elif (auto_play == "true"):
                 xurl = "%s?mode=%s" % (sys.argv[0],MODE_MOVIE_LIST)
                 url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie_list=" + urllib.quote_plus(';'.join(movie_list)) + "&file_list=" +
@@ -327,7 +326,7 @@ def getRar(nzbname):
                       "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
                 xbmc.executebuiltin("Container.Update("+url+")")
             else:
-                return playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
+                return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
         else:
             return
     else:
@@ -343,7 +342,7 @@ def sorted_rar_file_list(rar_file_list):
         file_list.sort()
     return file_list
 
-def playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history):
+def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history):
     for movie in movie_list:
         xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
         url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie=" + urllib.quote_plus(movie) + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
@@ -419,7 +418,7 @@ def list_movie(params):
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
-    return playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
+    return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
 
 def list_incomplete(params):
     get = params.get
@@ -451,11 +450,11 @@ def list_incomplete(params):
             progressDialog.close()
         file_list = sorted_rar_file_list(os.listdir(folder))
         movie_list = movie_filenames(folder, file)
-        return playListitem(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
+        return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
     else:
         return
 
-def playVideo(params):
+def play_video(params):
     get = params.get
     mode = get("mode")
     file = get("file")
@@ -650,12 +649,12 @@ def incomplete():
             m_row = []
         else:
             url = "&nzoid=" + str(sab_nzo_id) + "&nzbname=" + urllib.quote_plus(folder)
-            addPosts(folder, url, MODE_INCOMPLETE_LIST)
+            add_posts(folder, url, MODE_INCOMPLETE_LIST)
     nzbname_list = SABNZBD.nzo_id_history_list(m_nzbname_list)
     for row in nzbname_list:
         if row[1]:
             url = "&nzoidhistory=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0])
-            addPosts(row[0], url, MODE_INCOMPLETE_LIST)
+            add_posts(row[0], url, MODE_INCOMPLETE_LIST)
     return
 
 def get_node_value(parent, name, ns=""):
@@ -670,7 +669,6 @@ def load_xml(url):
         response = urllib2.urlopen(req)
     except:
         xbmc.log("unable to load url: " + url)
-
     xml = response.read()
     response.close()
     return parseString(xml)
@@ -714,16 +712,16 @@ if (__name__ == "__main__" ):
     if (not sys.argv[2]):
         if __settings__.getSetting("nzbs_enable").lower() == "true":
             nzbs(None)
-        addPosts('Incomplete', '', MODE_INCOMPLETE)
+        add_posts('Incomplete', '', MODE_INCOMPLETE)
     else:
-        params = getParameters(sys.argv[2])
+        params = get_parameters(sys.argv[2])
         get = params.get
         if get("mode")== MODE_LIST:
-            getNzb(params)
+            get_nzb(params)
         if get("mode")== MODE_MOVIE_LIST:
             list_movie(params)
         if get("mode")== MODE_PLAY or get("mode")== MODE_AUTO_PLAY:
-            playVideo(params)
+            play_video(params)
         if get("mode")== MODE_DELETE:
             delete(params)
         if get("mode")== MODE_DOWNLOAD:
