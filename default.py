@@ -144,20 +144,26 @@ def nzbs(params):
     return
 
 def list_feed_nzbs(feedUrl):
-    doc = load_xml(feedUrl)
-    for item in doc.getElementsByTagName("item"):
-        title = get_node_value(item, "title")
-        description = re.sub('<[^<]+?>', ' ', get_node_value(item, "description"))
-        nzb = get_node_value(item, "nzb", NS_REPORT)
-        thumbid = item.getElementsByTagNameNS(NS_REPORT, "imdbid")
-        thumb = ""
-        if thumbid:
-            thumbid = get_node_value(item, "imdbid", NS_REPORT)
-            thumb = "http://www.nzbs.org/imdb/" + thumbid + ".jpg"
-        nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
-        mode = MODE_LIST
-        add_posts(title, nzb, mode, description, thumb)
-    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+    doc, state = load_xml(feedUrl)
+    if doc and not state:
+        for item in doc.getElementsByTagName("item"):
+            title = get_node_value(item, "title")
+            description = re.sub('<[^<]+?>', ' ', get_node_value(item, "description"))
+            nzb = get_node_value(item, "nzb", NS_REPORT)
+            thumbid = item.getElementsByTagNameNS(NS_REPORT, "imdbid")
+            thumb = ""
+            if thumbid:
+                thumbid = get_node_value(item, "imdbid", NS_REPORT)
+                thumb = "http://www.nzbs.org/imdb/" + thumbid + ".jpg"
+            nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
+            mode = MODE_LIST
+            add_posts(title, nzb, mode, description, thumb)
+        xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+    else:
+        if state == "site":
+            xbmc.executebuiltin('Notification("NZBS","Site down")')
+        else:
+            xbmc.executebuiltin('Notification("NZBS","Malformed result")')
     return
 
 def add_posts(title, url, mode, description='', thumb='', folder=True):
@@ -668,10 +674,16 @@ def load_xml(url):
         req = urllib2.Request(url)
         response = urllib2.urlopen(req)
     except:
-        xbmc.log("unable to load url: " + url)
+        xbmc.log("plugin.video.nzbs: unable to load url: " + url)
+        return None, "site"
     xml = response.read()
     response.close()
-    return parseString(xml)
+    try:
+        out = parseString(xml)
+    except:
+        xbmc.log("plugin.video.nzbs: malformed xml from url: " + url)
+        return None, "xml"
+    return out, None
 
 def rarpath_fixer(folder, file):
     filepath = os.path.join(folder, file)
