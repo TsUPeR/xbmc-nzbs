@@ -46,6 +46,7 @@ RE_PART = '.part\d\d.rar'
 RE_CD = '(dvd|cd|bluray)1'
 RE_MOVIE = '\.avi$|\.mkv'
 RAR_HEADER = "Rar!\x1a\x07\x00"
+RAR_MIN_SIZE = 10485760
 
 NS_MEDIA = "http://search.yahoo.com/mrss/"
 NS_REPORT = "http://www.newzbin.com/DTD/2007/feeds/report/"
@@ -381,7 +382,7 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
             if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
                 filepath = os.path.join(folder, file)
                 sizeLater = os.path.getsize(filepath)
-                if size == sizeLater:
+                if size == sizeLater and size > RAR_MIN_SIZE:
                     rar = True
                     break
                 else:
