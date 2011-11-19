@@ -1,5 +1,6 @@
 import urllib
 import urllib2
+import xbmc
 from xml.dom.minidom import parse, parseString
 
 class sabnzbd(object):
@@ -137,11 +138,12 @@ class sabnzbd(object):
         url = self.baseurl + "&mode=queue&start=START&limit=LIMIT&output=xml"
         doc = _load_xml(url)
         sab_nzo_id = None
-        if doc.getElementsByTagName("slot"):
-            for slot in doc.getElementsByTagName("slot"):
-                filename = get_node_value(slot, "filename")
-                if filename.lower() == nzbname.lower():
-                    sab_nzo_id  = get_node_value(slot, "nzo_id")                        
+        if doc:
+            if doc.getElementsByTagName("slot"):
+                for slot in doc.getElementsByTagName("slot"):
+                    filename = get_node_value(slot, "filename")
+                    if filename.lower() == nzbname.lower():
+                        sab_nzo_id  = get_node_value(slot, "nzo_id")                        
         return sab_nzo_id
 
     def nzo_id_history(self, nzbname):
@@ -152,15 +154,19 @@ class sabnzbd(object):
         while limit <= noofslots and not sab_nzo_id:
             url = self.baseurl + "&mode=history&start=" +str(start) + "&limit=" + str(limit) + "&output=xml"
             doc = _load_xml(url)
-            history = doc.getElementsByTagName("history")
-            noofslots = int(get_node_value(history[0], "noofslots"))
-            if doc.getElementsByTagName("slot"):
-                for slot in doc.getElementsByTagName("slot"):
-                    filename = get_node_value(slot, "name")
-                    if filename == nzbname:
-                        sab_nzo_id  = get_node_value(slot, "nzo_id")
-            start = limit + 1
-            limit = limit + 20
+            if doc:
+                history = doc.getElementsByTagName("history")
+                noofslots = int(get_node_value(history[0], "noofslots"))
+                if doc.getElementsByTagName("slot"):
+                    for slot in doc.getElementsByTagName("slot"):
+                        filename = get_node_value(slot, "name")
+                        if filename == nzbname:
+                            sab_nzo_id  = get_node_value(slot, "nzo_id")
+                start = limit + 1
+                limit = limit + 20
+            else:
+                limit = 1
+                noofslots = 0                
         return sab_nzo_id
 
     def nzo_id_history_list(self, nzbname_list):
@@ -171,27 +177,32 @@ class sabnzbd(object):
         while limit <= noofslots and not sab_nzo_id:
             url = self.baseurl + "&mode=history&start=" +str(start) + "&limit=" + str(limit) + "&output=xml"
             doc = _load_xml(url)
-            history = doc.getElementsByTagName("history")
-            noofslots = int(get_node_value(history[0], "noofslots"))
-            if doc.getElementsByTagName("slot"):
-                for slot in doc.getElementsByTagName("slot"):
-                    filename = get_node_value(slot, "name")
-                    for row in nzbname_list:
-                        if filename == row[0]:
-                            sab_nzo_id = get_node_value(slot, "nzo_id")
-                            row[1] = sab_nzo_id
-            start = limit + 1
-            limit = limit + 20
+            if doc:
+                history = doc.getElementsByTagName("history")
+                noofslots = int(get_node_value(history[0], "noofslots"))
+                if doc.getElementsByTagName("slot"):
+                    for slot in doc.getElementsByTagName("slot"):
+                        filename = get_node_value(slot, "name")
+                        for row in nzbname_list:
+                            if filename == row[0]:
+                                sab_nzo_id = get_node_value(slot, "nzo_id")
+                                row[1] = sab_nzo_id
+                start = limit + 1
+                limit = limit + 20
+            else:
+                limit = 1
+                noofslots = 0
         return nzbname_list
 
     def file_list(self, id=''):
         url = self.baseurl + "&mode=get_files&output=xml&value=" + str(id)
         doc = _load_xml(url)
         file_list = []
-        if doc.getElementsByTagName("file"):
-            for file in doc.getElementsByTagName("file"):
-                filename = get_node_value(file, "filename")
-                file_list.append(filename)
+        if doc:
+            if doc.getElementsByTagName("file"):
+                for file in doc.getElementsByTagName("file"):
+                    filename = get_node_value(file, "filename")
+                    file_list.append(filename)
         return file_list
 
 def get_node_value(parent, name, ns=""):
@@ -205,7 +216,15 @@ def _load_xml(url):
         req = urllib2.Request(url)
         response = urllib2.urlopen(req)
     except:
-        print("unable to load url: " + url)
+        xbmc.log("plugin.video.nzbs: unable to load url: " + url)
+        xbmc.executebuiltin('Notification("NZBS","SABnzbd down")')
+        return None
     xml = response.read()
     response.close()
-    return parseString(xml)
+    try:
+        out = parseString(xml)
+    except:
+        xbmc.log("plugin.video.nzbs: malformed xml from url: " + url)
+        xbmc.executebuiltin('Notification("NZBS","SABnzbd malformed xml")')
+        return None
+    return out
