@@ -455,7 +455,7 @@ def list_incomplete(params):
                 progressDialog.update(0, 'Stream request to SABnzbd failed!')
                 time.sleep(2)
             progressDialog.close()
-        file_list = sorted_rar_file_list(os.listdir(folder))
+        file_list = SABNZBD.file_list(sab_nzo_id)
         movie_list = movie_filenames(folder, file)
         return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
     else:
@@ -467,7 +467,7 @@ def play_video(params):
     file = get("file")
     file = urllib.unquote_plus(file)
     file_list = get("file_list")
-    file_list = urllib.unquote_plus(file_list)
+    file_list = urllib.unquote_plus(file_list).split(";")
     movie = get("movie")
     movie = urllib.unquote_plus(movie)
     folder = get("folder")
@@ -478,17 +478,9 @@ def play_video(params):
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
         if not "None" in sab_nzo_id:
-            end = ""
-            if ".part01.rar" in file:
-                basename = file.replace(".part01.rar", ".part")
-                end = ".rar"
-            else:
-                basename = file.replace(".rar", ".r")
-            for i in range(10):
-                for y in range(10):
-                    filebasename = basename + str(i) + str(y) + end
-                    filename = os.path.join(folder, filebasename) 
-                    if not os.path.exists(filename):
+            for filebasename in file_list:
+                filename = os.path.join(folder, filebasename)
+                if not os.path.exists(filename):
                         # make 7 byte file with a rar header
                         fd = open(filename,'wb')
                         fd.write(RAR_HEADER)
@@ -515,17 +507,14 @@ def play_video(params):
                 break
         # if the item is in the queue we remove the temp files
         if not "None" in sab_nzo_id:
-            for i in range(10):
-                for y in range(10):
-                    filebasename = basename + str(i) + str(y) + end
-                    filebasename_one = basename + str(i) + str(y) + end + ".1"
-                    filename = os.path.join(folder, filebasename)
-                    filename_one = os.path.join(folder, filebasename_one)
-                    if os.path.exists(filename):
-                        if os.stat(filename).st_size == 7:
-                            os.remove(filename)
-                            if os.path.exists(filename_one):
-                                os.rename(filename_one, filename)
+            for filebasename in file_list:
+                filename = os.path.join(folder, filebasename)
+                filename_one = os.path.join(folder, (filebasename + ".1"))
+                if os.path.exists(filename):
+                    if os.stat(filename).st_size == 7:
+                        os.remove(filename)
+                        if os.path.exists(filename_one):
+                            os.rename(filename_one, filename)
             resume = SABNZBD.resume('', sab_nzo_id)
             if not "ok" in resume:
                 xbmc.log(resume)
