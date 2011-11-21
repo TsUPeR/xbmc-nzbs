@@ -42,8 +42,10 @@ from sabnzbd import sabnzbd
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
 
-RE_PART = '.part\d\d.rar'
+RE_PART = '.part\d{2,3}.rar$'
+RE_R = '.r\d{2,3}$'
 RE_CD = '(dvd|cd|bluray)1'
+RE_A = 'a\.(rar|part01.rar)$'
 RE_MOVIE = '\.avi$|\.mkv'
 RAR_HEADER = "Rar!\x1a\x07\x00"
 RAR_MIN_SIZE = 10485760
@@ -263,10 +265,12 @@ def get_rar(nzbname):
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
     file_list = []
+    cd_file_list = []
     if not sab_nzo_id:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
     else:
         file_list = sorted_rar_file_list(SABNZBD.file_list(sab_nzo_id))
+        cd_file_list = sorted_cd_file_list(file_list)
         sab_nzo_id_history = None
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for download to start')
@@ -316,7 +320,7 @@ def get_rar(nzbname):
             time.sleep(1)
             movie_list = movie_filenames(folder, file)
             auto_play = __settings__.getSetting("auto_play").lower() 
-            if ( auto_play == "true") and (len(movie_list) == 1) and (len(file_list) == 1):
+            if ( auto_play == "true") and (len(movie_list) == 1) and (len(cd_file_list) == 1):
                 video_params = dict()
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
                 video_params['mode'] = MODE_AUTO_PLAY
@@ -340,6 +344,17 @@ def get_rar(nzbname):
         return
 
 def sorted_rar_file_list(rar_file_list):
+    file_list = []
+    for file in rar_file_list:
+        partrar = re.findall(RE_PART, file)
+        rrar = re.findall(RE_R, file)
+        if (file.endswith(".rar") and not partrar) or partrar or rrar:
+            file_list.append(file)
+    if len(file_list) > 1:
+        file_list.sort()
+    return file_list
+
+def sorted_cd_file_list(rar_file_list):
     file_list = []
     for file in rar_file_list:
         partrar = re.findall(RE_PART, file)
@@ -419,7 +434,7 @@ def list_movie(params):
     get = params.get
     mode = get("mode")
     file = urllib.unquote_plus(get("file"))
-    file_list = urllib.unquote_plus(get("file_list"))
+    file_list = urllib.unquote_plus(get("file_list")).split(";")
     movie_list = urllib.unquote_plus(get("movie_list")).split(";")
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
@@ -518,7 +533,7 @@ def play_video(params):
             resume = SABNZBD.resume('', sab_nzo_id)
             if not "ok" in resume:
                 xbmc.log(resume)
-        add_to_playlist(file, folder)
+        add_to_playlist(file, file_list, folder)
     else:
         progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'File deleted')
@@ -528,17 +543,29 @@ def play_video(params):
         xbmc.executebuiltin("Action(ParentDir)")
     return
 
-def add_to_playlist(file, folder):
+def add_to_playlist(file, file_list, folder):
     fileStr = str(file)
     RE_CD_obj = re.compile(RE_CD, re.IGNORECASE)
-    file2str = RE_CD_obj.sub(r"\g<1>2", fileStr)
-    if not fileStr == file2str:
+    RE_A_obj = re.compile(RE_A, re.IGNORECASE)
+    cd_file = RE_CD_obj.sub(r"\g<1>2", fileStr)
+    a_file = RE_A_obj.sub(r"b.\g<1>", fileStr)
+    print "cd " + cd_file
+    print "a" + a_file
+    print file_list
+    if not cd_file == a_file:
+        if len(file_list) == 1:
+            file_list = sorted_rar_file_list(os.listdir(folder))
+        for hit in file_list:
+            if hit == a_file:
+                file2str = a_file
+            if hit == cd_file:
+                file2str = cd_file
         playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         item = xbmcgui.ListItem(file2str, iconImage='', thumbnailImage='')
         item.setInfo(type="Video", infoLabels={ "Title": file2str})
         item.setProperty("IsPlayable", "true")
         position = playlist.getposition() + 1
-        url = sys.argv[0] + '?' + "mode=play" + "&file=" + urllib.quote_plus(file2str) + "&movie=" + "&file_list=" + "&folder=" + urllib.quote_plus(folder) + "&nzoid=Blank" + "&nzoidhistory=Blank"
+        url = sys.argv[0] + '?' + "mode=play" + "&file=" + urllib.quote_plus(file2str) + "&movie=" + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + "&nzoid=Blank" + "&nzoidhistory=Blank"
         playlist.add(url, item, position)
     return
 
