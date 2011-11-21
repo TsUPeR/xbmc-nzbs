@@ -549,9 +549,6 @@ def add_to_playlist(file, file_list, folder):
     RE_A_obj = re.compile(RE_A, re.IGNORECASE)
     cd_file = RE_CD_obj.sub(r"\g<1>2", fileStr)
     a_file = RE_A_obj.sub(r"b.\g<1>", fileStr)
-    print "cd " + cd_file
-    print "a" + a_file
-    print file_list
     if not cd_file == a_file:
         if len(file_list) == 1:
             file_list = sorted_rar_file_list(os.listdir(folder))
