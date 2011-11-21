@@ -492,14 +492,7 @@ def play_video(params):
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
-        if not "None" in sab_nzo_id:
-            for filebasename in file_list:
-                filename = os.path.join(folder, filebasename)
-                if not os.path.exists(filename):
-                        # make 7 byte file with a rar header
-                        fd = open(filename,'wb')
-                        fd.write(RAR_HEADER)
-                        fd.close()
+        write_fake(sab_nzo_id, file_list, folder)
         # lets play the movie
         if not movie:
             movie = movie_filenames(folder, file)[0]
@@ -521,18 +514,7 @@ def play_video(params):
             if xbmc.Player().isPlayingVideo():
                 break
         # if the item is in the queue we remove the temp files
-        if not "None" in sab_nzo_id:
-            for filebasename in file_list:
-                filename = os.path.join(folder, filebasename)
-                filename_one = os.path.join(folder, (filebasename + ".1"))
-                if os.path.exists(filename):
-                    if os.stat(filename).st_size == 7:
-                        os.remove(filename)
-                        if os.path.exists(filename_one):
-                            os.rename(filename_one, filename)
-            resume = SABNZBD.resume('', sab_nzo_id)
-            if not "ok" in resume:
-                xbmc.log(resume)
+        remove_fake(sab_nzo_id, file_list, folder)
         add_to_playlist(file, file_list, folder)
     else:
         progressDialog = xbmcgui.DialogProgress()
@@ -541,6 +523,32 @@ def play_video(params):
         progressDialog.close()
         time.sleep(1)
         xbmc.executebuiltin("Action(ParentDir)")
+    return
+
+def write_fake(sab_nzo_id, file_list, folder):
+    if not "None" in sab_nzo_id:
+                for filebasename in file_list:
+                    filename = os.path.join(folder, filebasename)
+                    if not os.path.exists(filename):
+                            # make 7 byte file with a rar header
+                            fd = open(filename,'wb')
+                            fd.write(RAR_HEADER)
+                            fd.close()
+    return
+
+def remove_fake(sab_nzo_id, file_list, folder):
+    if not "None" in sab_nzo_id:
+        for filebasename in file_list:
+            filename = os.path.join(folder, filebasename)
+            filename_one = os.path.join(folder, (filebasename + ".1"))
+            if os.path.exists(filename):
+                if os.stat(filename).st_size == 7:
+                    os.remove(filename)
+                    if os.path.exists(filename_one):
+                        os.rename(filename_one, filename)
+        resume = SABNZBD.resume('', sab_nzo_id)
+        if not "ok" in resume:
+            xbmc.log(resume)
     return
 
 def add_to_playlist(file, file_list, folder):
