@@ -76,6 +76,7 @@ class sabnzbd(object):
         return responseMessage
 
 
+
     def switch(self, value=0, nzbname='',id=''):
         if not value in range(0,100):
             value = 0
@@ -91,6 +92,7 @@ class sabnzbd(object):
         if "0" in responseMessage:
             responseMessage = "ok"
         return responseMessage
+
 
 
     def repair(self, nzbname='',id=''):
@@ -145,6 +147,19 @@ class sabnzbd(object):
                     if filename.lower() == nzbname.lower():
                         sab_nzo_id  = get_node_value(slot, "nzo_id")                        
         return sab_nzo_id
+
+    def nzf_id(self, sab_nzo_id, name):
+        url = self.baseurl + "&mode=get_files&output=xml&value=" + str(sab_nzo_id)
+        doc = _load_xml(url)
+        sab_nzf_id = None
+        if doc:
+            if doc.getElementsByTagName("file"):
+                for file in doc.getElementsByTagName("file"):
+                    filename = get_node_value(file, "filename")
+                    status = get_node_value(file, "status")
+                    if filename.lower() == name.lower() and status == "active":
+                        sab_nzf_id  = get_node_value(file, "nzf_id")                        
+        return sab_nzf_id
 
     def nzo_id_history(self, nzbname):
         start = 0
@@ -204,6 +219,26 @@ class sabnzbd(object):
                     filename = get_node_value(file, "filename")
                     file_list.append(filename)
         return file_list
+
+    def file_list_position(self, sab_nzo_id, sab_nzf_id, position):
+        action = { -1 : 'Delete',
+                    0 : 'Top',
+                    1 : 'Up',
+                    2 : 'Down',
+                    3 : 'Bottom'}
+        url = "http://" + self.ip + ":" + self.port + "/sabnzbd/nzb/" + sab_nzo_id + "/bulk_operation?session=" + self.apikey + "&action_key=" + action[position]
+        for nzf_id in sab_nzf_id:
+            url = url + "&" + nzf_id + "=on"
+        try:
+            req = urllib2.Request(url)
+            response = urllib2.urlopen(req)
+        except:
+            xbmc.log("plugin.video.nzbs: unable to load url: " + url)
+            xbmc.executebuiltin('Notification("NZBS","SABnzbd file moving file")')
+            return None
+        response.close()
+        return
+
 
 def get_node_value(parent, name, ns=""):
     if ns:

@@ -38,6 +38,7 @@ import xbmcplugin
 from xml.dom.minidom import parse, parseString
 from rarfile import RarFile
 from sabnzbd import sabnzbd
+from threading import Thread
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
@@ -47,6 +48,7 @@ RE_R = '.r\d{2,3}$'
 RE_CD = '(dvd|cd|bluray)1'
 RE_A = 'a\.(rar|part01.rar)$'
 RE_MOVIE = '\.avi$|\.mkv'
+RE_MKV = '\.mkv$'
 RAR_HEADER = "Rar!\x1a\x07\x00"
 RAR_MIN_SIZE = 10485760
 
@@ -260,7 +262,7 @@ def get_nzb(params):
         # TODO make sure there is also a NZB in the queue
         get_rar(nzbname)
 
-def get_rar(nzbname):
+def get_rar(nzbname, first_rar = None, last_rar = None):
     iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
@@ -299,7 +301,7 @@ def get_rar(nzbname):
             time.sleep(1)
             seconds += 1
     if not iscanceled:
-        file, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, 'Request to SABnzbd succeeded')
+        file, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, 'Request to SABnzbd succeeded', last_rar)
         if not iscanceled:
             progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
             if sab_nzo_id:
@@ -318,23 +320,34 @@ def get_rar(nzbname):
                     time.sleep(1)
             progressDialog.close()
             time.sleep(1)
-            movie_list = movie_filenames(folder, file)
+            if not last_rar:
+                movie_list = movie_filenames(folder, file)
+            else:
+                movie_list = ['']
             auto_play = __settings__.getSetting("auto_play").lower() 
             if ( auto_play == "true") and (len(movie_list) == 1) and (len(cd_file_list) == 1):
                 video_params = dict()
                 video_params['nzoidhistory'] = str(sab_nzo_id_history)
                 video_params['mode'] = MODE_AUTO_PLAY
-                video_params['file'] = urllib.quote_plus(file)
+                if not last_rar:
+                    video_params['file'] = urllib.quote_plus(file)
+                else:
+                    video_params['file'] = urllib.quote_plus(first_rar)
                 video_params['movie'] = urllib.quote_plus(movie_list[0])
                 video_params['file_list'] = urllib.quote_plus(';'.join(file_list))
                 video_params['folder'] = urllib.quote_plus(folder)
                 video_params['nzoid'] = str(sab_nzo_id)
+                video_params['last_rar'] = str(last_rar)
                 return play_video(video_params)
             elif (auto_play == "true"):
                 xurl = "%s?mode=%s" % (sys.argv[0],MODE_MOVIE_LIST)
-                url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie_list=" + urllib.quote_plus(';'.join(movie_list)) + "&file_list=" +
+                url = (xurl + "&movie_list=" + urllib.quote_plus(';'.join(movie_list)) + "&file_list=" +
                       urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
-                      "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+                      "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history)) + "&last_rar=" + str(last_rar)
+                if not last_rar:
+                    url = url + "&file=" + urllib.quote_plus(file) 
+                else:
+                    url = url + "&file=" + urllib.quote_plus(first_rar) 
                 xbmc.executebuiltin("Container.Update("+url+")")
             else:
                 return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
@@ -385,28 +398,43 @@ def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_hi
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
     return 
 
-def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_string = None):
+def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_string = None, last_rar = None):
     isCanceled = False
     rar = False
     size = -1
     seconds = 0
     while not rar:
         dirList = sorted_rar_file_list(os.listdir(folder))
-        for file in dirList:
-            partrar = re.findall(RE_PART, file)
-            if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
-                filepath = os.path.join(folder, file)
-                sizeLater = os.path.getsize(filepath)
-                if size == sizeLater and size > RAR_MIN_SIZE:
-                    rar = True
-                    break
-                else:
-                    size = sizeLater
-                    break
+        if last_rar:
+            for file in dirList:
+                if file == last_rar:
+                    filepath = os.path.join(folder, file)
+                    sizeLater = os.path.getsize(filepath)
+                    if size == sizeLater and size > RAR_MIN_SIZE:
+                        rar = True
+                        break
+                    else:
+                        size = sizeLater
+                        break
+        else:
+            for file in dirList:
+                partrar = re.findall(RE_PART, file)
+                if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
+                    filepath = os.path.join(folder, file)
+                    sizeLater = os.path.getsize(filepath)
+                    if size == sizeLater and size > RAR_MIN_SIZE:
+                        rar = True
+                        break
+                    else:
+                        size = sizeLater
+                        break
         label = str(seconds) + " seconds"
         if sab_nzo_id:
             if dialog_string:
-                progressDialog.update(0, dialog_string, 'Waiting for first rar', label)
+                if last_rar:
+                    progressDialog.update(0, dialog_string, 'Waiting for last rar', label)
+                else:
+                    progressDialog.update(0, dialog_string, 'Waiting for first rar', label)
             else:
                 progressDialog.update(0, 'Waiting for first rar', label)
             if progressDialog.iscanceled():
@@ -489,6 +517,12 @@ def play_video(params):
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
+    last_rar = get("last_rar")
+    if last_rar:
+        if "None" in last_rar:
+            last_rar = False
+        else:
+            last_rar = True
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
@@ -503,7 +537,13 @@ def play_video(params):
         item.setProperty("IsPlayable", "true")
         xbmcplugin.setContent(int(sys.argv[1]), 'movies')
         if mode == MODE_AUTO_PLAY:
-            xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
+            if re.search(RE_MKV, movie, re.IGNORECASE) and not last_rar:
+                remove_fake(sab_nzo_id, file_list, folder)
+                t = Thread(target=get_last_rar, args=(folder, sab_nzo_id, file_list, file))
+                t.start()
+                return
+            else:
+                xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
         else:
             xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         wait = 0
@@ -550,6 +590,27 @@ def remove_fake(sab_nzo_id, file_list, folder):
         if not "ok" in resume:
             xbmc.log(resume)
     return
+
+def get_last_rar(folder, sab_nzo_id, file_list, first_rar):
+    nzbname = os.path.basename(folder)
+    last_rar = find_last_rar(file_list, folder)
+    sab_nzf_id = SABNZBD.nzf_id(sab_nzo_id, last_rar)
+    if sab_nzf_id:
+        SABNZBD.file_list_position(sab_nzo_id, [sab_nzf_id], 0)
+    get_rar(nzbname, first_rar, last_rar)
+    return
+
+def find_last_rar(file_list, folder):
+    file_list.extend(os.listdir(folder))
+    rar_list = []
+    for file in file_list:
+        partrar = re.findall(RE_PART, file)
+        rrar = re.findall(RE_R, file)
+        if partrar or rrar:
+            rar_list.append(file)
+    if len(rar_list) > 1:
+        rar_list.sort()
+    return rar_list[-1]
 
 def add_to_playlist(file, file_list, folder):
     fileStr = str(file)
