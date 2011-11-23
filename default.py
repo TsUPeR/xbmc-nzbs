@@ -262,6 +262,7 @@ def get_nzb(params):
             progressDialog.close()
         # TODO make sure there is also a NZB in the queue
         get_rar(nzbname)
+        return
 
 def get_rar(nzbname, first_rar = None, last_rar = None):
     iscanceled = False
@@ -383,12 +384,13 @@ def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_hi
     for movie in movie_list:
         xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
         url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie=" + urllib.quote_plus(movie) + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
-                "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history))
+                "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&last_rar=None")
         item = xbmcgui.ListItem(movie, iconImage='', thumbnailImage='')
         item.setInfo(type="Video", infoLabels={ "Title": movie})
         item.setPath(url)
         isfolder = False
-        item.setProperty("IsPlayable", "true")
+        if not re.search(RE_MKV, movie, re.IGNORECASE):
+            item.setProperty("IsPlayable", "true")
         cm = []
         if sab_nzo_id_history:
             cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
@@ -405,6 +407,7 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
     rar = False
     size = -1
     seconds = 0
+    file = None
     while not rar:
         dirList = sorted_rar_file_list(os.listdir(folder))
         if last_rar:
@@ -420,15 +423,15 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
                         break
         else:
             for file in dirList:
-                partrar = re.findall(RE_PART, file)
-                part01rar = re.findall(RE_PART01, file)
+                partrar = re.findall(RE_PART, file, re.IGNORECASE)
+                part01rar = re.findall(RE_PART01, file, re.IGNORECASE)
                 if (file.endswith(".rar") and not partrar) or part01rar:
                     filepath = os.path.join(folder, file)
                     sizeLater = os.path.getsize(filepath)
                     if size == sizeLater and size > RAR_MIN_SIZE:
                         rar = True
                         break
-                    else:
+                    elif sizeLater > RAR_MIN_SIZE:
                         size = sizeLater
                         break
         label = str(seconds) + " seconds"
@@ -452,11 +455,15 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
                         delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
                     if not "ok" in delete_:
                         xbmc.log(delete_)
+                        xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
+                    else:
+                        xbmc.executebuiltin('Notification("NZBS","Deleting succeeded")')
                     iscanceled = True
-                    break
+                    return file, iscanceled 
                 if ret == 1:
                     iscanceled = True
-                    break
+                    xbmc.executebuiltin('Notification("NZBS","Downloading")')
+                    return file, iscanceled
         seconds += 1
         time.sleep(1)
     return file, isCanceled
@@ -548,7 +555,13 @@ def play_video(params):
             else:
                 xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
         else:
-            xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
+            if re.search(RE_MKV, movie, re.IGNORECASE) and not last_rar:
+                remove_fake(sab_nzo_id, file_list, folder)
+                t = Thread(target=get_last_rar, args=(folder, sab_nzo_id, file_list, file))
+                t.start()
+                return
+            else:
+                xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         wait = 0
         time.sleep(3)
         while (wait <= 10):
