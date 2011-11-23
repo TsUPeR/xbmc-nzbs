@@ -410,7 +410,7 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
                 if file == last_rar:
                     filepath = os.path.join(folder, file)
                     sizeLater = os.path.getsize(filepath)
-                    if size == sizeLater and size > RAR_MIN_SIZE:
+                    if size == sizeLater:
                         rar = True
                         break
                     else:
