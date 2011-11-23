@@ -44,6 +44,7 @@ __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
 
 RE_PART = '.part\d{2,3}.rar$'
+RE_PART01 = '.part0{1,2}1.rar$'
 RE_R = '.r\d{2,3}$'
 RE_CD = '(dvd|cd|bluray)1'
 RE_A = 'a\.(rar|part01.rar)$'
@@ -371,7 +372,8 @@ def sorted_cd_file_list(rar_file_list):
     file_list = []
     for file in rar_file_list:
         partrar = re.findall(RE_PART, file)
-        if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
+        part01rar = re.findall(RE_PART01, file)
+        if (file.endswith(".rar") and not partrar) or part01rar:
             file_list.append(file)
     if len(file_list) > 1:
         file_list.sort()
@@ -419,7 +421,8 @@ def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_
         else:
             for file in dirList:
                 partrar = re.findall(RE_PART, file)
-                if (file.endswith(".rar") and not partrar) or file.endswith("part01.rar"):
+                part01rar = re.findall(RE_PART01, file)
+                if (file.endswith(".rar") and not partrar) or part01rar:
                     filepath = os.path.join(folder, file)
                     sizeLater = os.path.getsize(filepath)
                     if size == sizeLater and size > RAR_MIN_SIZE:
