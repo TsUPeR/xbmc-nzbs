@@ -36,7 +36,7 @@ import xbmcgui
 import xbmcplugin
 
 from xml.dom.minidom import parse, parseString
-from rarfile import RarFile
+import rarfile
 from sabnzbd import sabnzbd
 from threading import Thread
 
@@ -653,7 +653,11 @@ def add_to_playlist(file, file_list, folder):
 
 def movie_filenames(folder, file):
     filepath = os.path.join(folder, file)
-    movieFileList = sort_filename(RarFile(filepath).namelist())
+    rf = rarfile.RarFile(filepath)
+    movieFileList = sort_filename(rf.namelist())
+    for f in rf.infolist():
+        if f.compress_type != 48:
+            xbmc.executebuiltin('Notification("NZBS","Compressed rar!!!")')
     return movieFileList
 
 def sort_filename(filenameList):
