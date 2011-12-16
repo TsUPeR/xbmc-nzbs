@@ -164,7 +164,7 @@ def list_feed_nzbs(feedUrl):
             nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
             mode = MODE_LIST
             add_posts(title, nzb, mode, description, thumb)
-        xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+        xbmcplugin.setContent(HANDLE, 'movies')
     else:
         if state == "site":
             xbmc.executebuiltin('Notification("NZBS","Site down")')
@@ -192,7 +192,7 @@ def add_posts(title, url, mode, description='', thumb='', folder=True):
         cm_url_delete = sys.argv[0] + '?' + "mode=delete&incomplete=True" + url + "&folder=" + urllib.quote_plus(title)
         cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
         listitem.addContextMenuItems(cm, replaceItems=False)
-    return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=xurl, listitem=listitem, isFolder=folder)
+    return xbmcplugin.addDirectoryItem(handle=HANDLE, url=xurl, listitem=listitem, isFolder=folder)
  
 # FROM plugin.video.youtube.beta  -- converts the request url passed on by xbmc to our plugin into a dict  
 def get_parameters(parameterString):
@@ -403,8 +403,8 @@ def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_hi
         cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
         cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
         item.addContextMenuItems(cm, replaceItems=True)
-        xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
-    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+        xbmcplugin.addDirectoryItem(handle=HANDLE, url=url, listitem=item, isFolder=isfolder)
+    xbmcplugin.setContent(HANDLE, 'movies')
     return 
 
 def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_string = None, last_rar = None):
@@ -582,7 +582,7 @@ def play_video(params):
         item.setInfo(type="Video", infoLabels={ "Title": movie})
         item.setPath(raruri)
         item.setProperty("IsPlayable", "true")
-        xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+        xbmcplugin.setContent(HANDLE, 'movies')
         if mode == MODE_AUTO_PLAY:
             if re.search(RE_MKV, movie, re.IGNORECASE) and not last_rar:
                 remove_fake(sab_nzo_id, file_list, folder)
@@ -602,7 +602,7 @@ def play_video(params):
                 if re.search(RE_MKV, movie, re.IGNORECASE):
                     xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
                 else:
-                    xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
+                    xbmcplugin.setResolvedUrl(handle=HANDLE, succeeded=True, listitem=item)
         wait = 0
         time.sleep(3)
         while (wait <= 10):
@@ -860,6 +860,7 @@ def unikeyboard(default, message):
         return ""
 
 if (__name__ == "__main__" ):
+    HANDLE = int(sys.argv[1])
     if not (__settings__.getSetting("firstrun") and __settings__.getSetting("sabnzbd_ip") and
         __settings__.getSetting("sabnzbd_port") and __settings__.getSetting("sabnzbd_key") and 
         __settings__.getSetting("sabnzbd_incomplete")):
@@ -891,4 +892,4 @@ if (__name__ == "__main__" ):
         if get("mode")== MODE_INCOMPLETE_LIST:
             list_incomplete(params)
 
-xbmcplugin.endOfDirectory(int(sys.argv[1]), succeeded=True, cacheToDisc=True)
+xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
