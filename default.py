@@ -323,9 +323,14 @@ def get_rar(nzbname, first_rar = None, last_rar = None):
             progressDialog.close()
             time.sleep(1)
             if not last_rar:
-                movie_list = movie_filenames(folder, file)
-            else:
-                movie_list = ['']
+                first_rar = file
+            movie_list = movie_filenames(folder, first_rar)
+            mkv = False
+            for movie in movie_list:
+                if re.search(RE_MKV, movie, re.IGNORECASE):
+                    mkv = True
+            if mkv:
+                last_rar = find_last_rar(file_list, folder)
             auto_play = __settings__.getSetting("auto_play").lower() 
             if ( auto_play == "true") and (len(movie_list) == 1) and (len(cd_file_list) == 1):
                 video_params = dict()
@@ -380,11 +385,11 @@ def sorted_cd_file_list(rar_file_list):
         file_list.sort()
     return file_list
 
-def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history):
+def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history, last_rar = None):
     for movie in movie_list:
         xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
         url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie=" + urllib.quote_plus(movie) + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
-                "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&last_rar=None")
+                "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&last_rar=" + str(last_rar))
         item = xbmcgui.ListItem(movie, iconImage='', thumbnailImage='')
         item.setInfo(type="Video", infoLabels={ "Title": movie})
         item.setPath(url)
@@ -478,7 +483,8 @@ def list_movie(params):
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
-    return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
+    last_rar = get("last_rar")
+    return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history, last_rar)
 
 def list_incomplete(params):
     get = params.get
@@ -510,7 +516,38 @@ def list_incomplete(params):
             progressDialog.close()
         file_list = SABNZBD.file_list(sab_nzo_id)
         movie_list = movie_filenames(folder, file)
-        return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
+        mkv = False
+        for movie in movie_list:
+            if re.search(RE_MKV, movie, re.IGNORECASE):
+                mkv = True
+        if mkv:
+            last_rar = find_last_rar(file_list, folder)
+            progressDialog = xbmcgui.DialogProgress()
+            if sab_nzo_id:
+                progressDialog.create('NZBS', 'MKV - Waiting for last rar')
+            last_rar, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history,'Request to SABnzbd succeeded' ,last_rar)
+            if not iscanceled:
+                if sab_nzo_id:
+                    progressDialog.update(0, 'Last rar downloaded', 'pausing SABnzbd')
+                    pause = SABNZBD.pause('',sab_nzo_id)
+                    if "ok" in pause:
+                        progressDialog.update(0, 'Last rar downloaded', 'SABnzbd paused')
+                    else:
+                        xbmc.log(pause)
+                        progressDialog.update(0, 'Request to SABnzbd failed!')
+                        time.sleep(2)
+                    # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
+                    setstreaming = SABNZBD.setStreaming('', sab_nzo_id)
+                    if not "ok" in setstreaming:
+                        xbmc.log(setstreaming)
+                        progressDialog.update(0, 'Stream request to SABnzbd failed!')
+                        time.sleep(2)
+                    progressDialog.close()
+                playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history, last_rar)
+            else:
+                return
+        else:    
+            return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
     else:
         return
 
@@ -561,7 +598,11 @@ def play_video(params):
                 t.start()
                 return
             else:
-                xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
+                #TODO ugly hack
+                if re.search(RE_MKV, movie, re.IGNORECASE):
+                    xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
+                else:
+                    xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=item)
         wait = 0
         time.sleep(3)
         while (wait <= 10):
