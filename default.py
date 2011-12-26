@@ -206,7 +206,7 @@ def get_parameters(parameterString):
             commands[name] = value  
     return commands
     
-def get_nzb(params):
+def is_nzb_home(params):
     get = params.get
     nzb = urllib.unquote_plus(get("nzb"))
     nzbname = urllib.unquote_plus(get("nzbname"))
@@ -244,15 +244,15 @@ def get_nzb(params):
                     progressDialog.update(0, 'Failed to prioritize the nzb!')
                     time.sleep(2)
                 progressDialog.close()
-                get_rar(nzbname)
+                return True
             else:
-                return
+                return False
         else:
             xbmc.log(addurl)
             progressDialog.update(0, 'Request to SABnzbd failed!')
             time.sleep(2)
             progressDialog.close()
-            return
+            return False
     else:
         switch = SABNZBD.switch(0,nzbname, '')
         if not "ok" in switch:
@@ -261,8 +261,7 @@ def get_nzb(params):
             time.sleep(2)
             progressDialog.close()
         # TODO make sure there is also a NZB in the queue
-        get_rar(nzbname)
-        return
+        return True
 
 def get_rar(nzbname, first_rar = None, last_rar = None):
     iscanceled = False
@@ -874,7 +873,8 @@ if (__name__ == "__main__" ):
         params = get_parameters(sys.argv[2])
         get = params.get
         if get("mode")== MODE_LIST:
-            get_nzb(params)
+            if is_nzb_home(params):
+                get_rar(nzbname)
         if get("mode")== MODE_MOVIE_LIST:
             list_movie(params)
         if get("mode")== MODE_PLAY or get("mode")== MODE_AUTO_PLAY:
