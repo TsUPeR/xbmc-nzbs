@@ -216,8 +216,15 @@ class sabnzbd(object):
         if doc:
             if doc.getElementsByTagName("file"):
                 for file in doc.getElementsByTagName("file"):
-                    filename = get_node_value(file, "filename")
-                    file_list.append(filename)
+                    status = get_node_value(file, "status")
+                    if status == "active":
+                        row = []
+                        filename = get_node_value(file, "filename")
+                        row.append(filename)
+                        bytes = get_node_value(file, "bytes")
+                        bytes = int(bytes.replace(".00",""))
+                        row.append(bytes)
+                        file_list.append(row)
         return file_list
 
     def file_list_position(self, sab_nzo_id, sab_nzf_id, position):
