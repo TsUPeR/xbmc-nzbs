@@ -48,8 +48,11 @@ RE_PART01 = '.part0{1,2}1.rar$'
 RE_R = '.r\d{2,3}$'
 RE_CD = '(dvd|cd|bluray)1'
 RE_A = 'a\.(rar|part01.rar)$'
-RE_MOVIE = '\.avi$|\.mkv'
+RE_AVI = 'a\.(avi)$'
+RE_MOVIE = '\.avi$|\.mkv$|\.iso$|\.img$'
+RE_SAMPLE = '-sample'
 RE_MKV = '\.mkv$'
+
 RAR_HEADER = "Rar!\x1a\x07\x00"
 RAR_MIN_SIZE = 10485760
 
@@ -62,6 +65,7 @@ NUMBER = [25,50,75,100][int(__settings__.getSetting("num"))]
 SABNZBD = sabnzbd(__settings__.getSetting("sabnzbd_ip"),
         __settings__.getSetting("sabnzbd_port"),__settings__.getSetting("sabnzbd_key"))
 INCOMPLETE_FOLDER = __settings__.getSetting("sabnzbd_incomplete")
+AUTO_PLAY = (__settings__.getSetting("auto_play").lower() == "true")
 
 MODE_LIST = "list"
 MODE_MOVIE_LIST = "movie_list"
@@ -182,15 +186,17 @@ def add_posts(title, url, mode, description='', thumb='', folder=True):
         cm = []
         cm_mode = MODE_DOWNLOAD
         cm_label = "Download"
-        if (__settings__.getSetting("auto_play").lower() == "true"):
+        if AUTO_PLAY:
             folder = False
         cm_url_download = sys.argv[0] + '?mode=' + cm_mode + url
         cm.append((cm_label , "XBMC.RunPlugin(%s)" % (cm_url_download)))
         listitem.addContextMenuItems(cm, replaceItems=False)
     if mode == MODE_INCOMPLETE_LIST:
         cm = []
-        cm_url_delete = sys.argv[0] + '?' + "mode=delete&incomplete=True" + url + "&folder=" + urllib.quote_plus(title)
+        cm_url_delete = sys.argv[0] + '?' + "mode=delete&incomplete=True" + url
         cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
+        cm_url_delete_all = sys.argv[0] + '?' + "mode=delete&delete_all=True&incomplete=True" + url
+        cm.append(("Delete all inactive" , "XBMC.RunPlugin(%s)" % (cm_url_delete_all)))
         listitem.addContextMenuItems(cm, replaceItems=False)
     return xbmcplugin.addDirectoryItem(handle=HANDLE, url=xurl, listitem=listitem, isFolder=folder)
  
@@ -215,6 +221,9 @@ def is_nzb_home(params):
     iscanceled = False
     if not os.path.exists(folder):
         addurl = SABNZBD.addurl(nzb, nzbname)
+        # TODO
+        # Start a meta_data_fetch thread and download covers, fanart and nfo
+        # to the incomplete folder
         progressDialog.create('NZBS', 'Sending request to SABnzbd')
         if "ok" in addurl:
             progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download')
@@ -263,138 +272,121 @@ def is_nzb_home(params):
         # TODO make sure there is also a NZB in the queue
         return True
 
-def get_rar(nzbname, first_rar = None, last_rar = None):
+def pre_play(nzbname, mode = None):
     iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
-    file_list = []
-    cd_file_list = []
-    if not sab_nzo_id:
+    file_list = list_dir(folder)
+    multi_arch_list = []
+    if sab_nzo_id is None:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
     else:
-        file_list = sorted_rar_file_list(SABNZBD.file_list(sab_nzo_id))
-        cd_file_list = sorted_cd_file_list(file_list)
+        file_list.extend(SABNZBD.file_list(sab_nzo_id))
         sab_nzo_id_history = None
-    progressDialog = xbmcgui.DialogProgress()
-    progressDialog.create('NZBS', 'Request to SABnzbd succeeded', 'Waiting for download to start')
-    if not os.path.exists(folder):
-        seconds = 0
-        while not os.path.exists(folder):
-            label = str(seconds) + " seconds"
-            progressDialog.update(0, 'Request to SABnzbd succeeded', 'Waiting for download to start', label)
-            if progressDialog.iscanceled():
-                dialog = xbmcgui.Dialog()
-                ret = dialog.select('What do you want to do?', ['Delete job', 'Just download'])
-                if ret == 0:
-                    if sab_nzo_id:
-                        pause = SABNZBD.pause('',sab_nzo_id)
-                        time.sleep(3)
-                        delete_ = SABNZBD.delete_queue('',sab_nzo_id)
-                    else:
-                        delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
-                    if not "ok" in delete_:
-                        xbmc.log(delete_)
-                    iscanceled = True
-                    break
-                if ret == 1:
-                    iscanceled = True
-                    break
-            time.sleep(1)
-            seconds += 1
-    if not iscanceled:
-        file, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, 'Request to SABnzbd succeeded', last_rar)
-        if not iscanceled:
-            progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
-            if sab_nzo_id:
-                pause = SABNZBD.pause('',sab_nzo_id)
-                if "ok" in pause:
-                    progressDialog.update(0, 'First rar downloaded', 'SABnzbd paused')
-                else:
-                    xbmc.log(pause)
-                    progressDialog.update(0, 'Request to SABnzbd failed!')
-                    time.sleep(2)
-                # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
-                postprocess = SABNZBD.postProcess(0, '', sab_nzo_id)
-                if not "ok" in postprocess:
-                    xbmc.log(postprocess)
-                    progressDialog.update(0, 'Post process request to SABnzbd failed!')
-                    time.sleep(1)
-            progressDialog.close()
-            time.sleep(1)
-            if not last_rar:
-                first_rar = file
-            movie_list = movie_filenames(folder, first_rar)
-            mkv = False
-            for movie in movie_list:
-                if re.search(RE_MKV, movie, re.IGNORECASE):
-                    mkv = True
-            if mkv:
-                last_rar = find_last_rar(file_list, folder)
-            auto_play = __settings__.getSetting("auto_play").lower() 
-            if ( auto_play == "true") and (len(movie_list) == 1) and (len(cd_file_list) == 1):
-                video_params = dict()
-                video_params['nzoidhistory'] = str(sab_nzo_id_history)
-                video_params['mode'] = MODE_AUTO_PLAY
-                if not last_rar:
-                    video_params['file'] = urllib.quote_plus(file)
-                else:
-                    video_params['file'] = urllib.quote_plus(first_rar)
-                video_params['movie'] = urllib.quote_plus(movie_list[0])
-                video_params['file_list'] = urllib.quote_plus(';'.join(file_list))
-                video_params['folder'] = urllib.quote_plus(folder)
-                video_params['nzoid'] = str(sab_nzo_id)
-                video_params['last_rar'] = str(last_rar)
-                return play_video(video_params)
-            elif (auto_play == "true"):
-                xurl = "%s?mode=%s" % (sys.argv[0],MODE_MOVIE_LIST)
-                url = (xurl + "&movie_list=" + urllib.quote_plus(';'.join(movie_list)) + "&file_list=" +
-                      urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
-                      "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history)) + "&last_rar=" + str(last_rar)
-                if not last_rar:
-                    url = url + "&file=" + urllib.quote_plus(file) 
-                else:
-                    url = url + "&file=" + urllib.quote_plus(first_rar) 
-                xbmc.executebuiltin("Container.Update("+url+")")
-            else:
-                return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
+    file_list = sorted_rar_file_list(file_list)
+    multi_arch_list = sorted_multi_arch_list(file_list)
+    # Loop though all multi archives and add file to the 
+    play_list = []
+    for arch_rar, byte in multi_arch_list:
+        if sab_nzo_id is not None:
+            iscanceled = get_rar(folder, sab_nzo_id, arch_rar)
+        if iscanceled:
+            break
         else:
-            return
-    else:
+            if sab_nzo_id:
+                set_streaming(sab_nzo_id)
+            # TODO is this needed?
+            time.sleep(1)
+            # RAR ANALYSYS #
+            movie_list = movie_filenames(folder, arch_rar)
+            # Make sure we have a movie
+            if not (len(movie_list) >= 1):
+                xbmc.executebuiltin('Notification("NZBS","Not a movie!")')
+                break
+            # Who needs sample?
+            movie_no_sample_list = no_sample_list(movie_list)
+            # If auto play is enabled we skip samples in the play_list
+            if AUTO_PLAY and mode is not MODE_INCOMPLETE_LIST:
+                for movie_file in movie_no_sample_list:
+                    play_list.append(arch_rar)
+                    play_list.append(movie_file)
+            else:
+                for movie_file in movie_list:
+                    play_list.append(arch_rar)
+                    play_list.append(movie_file)
+            # If the movie is a .mkv we need the last rar
+            if is_movie_mkv(movie_list) and sab_nzo_id:
+                # If we have a sample the second rar is also needed..
+                if len(movie_no_sample_list) != len(movie_list):
+                    second_rar = find_rar(file_list, 0)
+                    iscanceled = get_rar(folder, sab_nzo_id, second_rar)
+                last_rar = find_rar(file_list, -1)
+                iscanceled =  get_rar(folder, sab_nzo_id, last_rar)
+                if iscanceled: 
+                    break 
+    if iscanceled:
         return
+    else:
+        rar_file_list = [x[0] for x in file_list]
+        if AUTO_PLAY and mode is None: #and (len(play_list) == 2) and mode is None:
+            video_params = dict()
+            video_params['nzoid'] = str(sab_nzo_id)
+            video_params['nzoidhistory'] = str(sab_nzo_id_history)
+            video_params['mode'] = MODE_AUTO_PLAY
+            video_params['play_list'] = urllib.quote_plus(';'.join(play_list))
+            video_params['file_list'] = urllib.quote_plus(';'.join(rar_file_list))
+            video_params['folder'] = urllib.quote_plus(folder)
+            return play_video(video_params)   
+        else:
+            return playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_history)
+
+def set_streaming(sab_nzo_id):
+    # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
+    setstreaming = SABNZBD.setStreaming('', sab_nzo_id)
+    if not "ok" in setstreaming:
+        xbmc.log(setstreaming)
+        xbmc.executebuiltin('Notification("NZBS","Post process request to SABnzbd failed!")')
+        time.sleep(1)
+    return
 
 def sorted_rar_file_list(rar_file_list):
     file_list = []
-    for file in rar_file_list:
-        partrar = re.findall(RE_PART, file)
-        rrar = re.findall(RE_R, file)
-        if (file.endswith(".rar") and not partrar) or partrar or rrar:
-            file_list.append(file)
-    if len(file_list) > 1:
-        file_list.sort()
+    if len(rar_file_list) > 0:
+        for file, bytes in rar_file_list:
+            partrar = re.findall(RE_PART, file)
+            rrar = re.findall(RE_R, file)
+            if ((file.endswith(".rar") and not partrar) or partrar or rrar):
+                file_list.append([file, bytes])
+        if len(file_list) > 1:
+            file_list.sort()
     return file_list
 
-def sorted_cd_file_list(rar_file_list):
+def sorted_multi_arch_list(rar_file_list):
     file_list = []
-    for file in rar_file_list:
+    for file, bytes in rar_file_list:
         partrar = re.findall(RE_PART, file)
         part01rar = re.findall(RE_PART01, file)
-        if (file.endswith(".rar") and not partrar) or part01rar:
-            file_list.append(file)
+        # No small sub archives
+        if ((file.endswith(".rar") and not partrar) or part01rar) and bytes > RAR_MIN_SIZE:
+            file_list.append([file, bytes])
     if len(file_list) > 1:
         file_list.sort()
     return file_list
 
-def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history, last_rar = None):
-    for movie in movie_list:
+def playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_history):
+    new_play_list = play_list[:]
+    for arch_rar, movie_file in zip(play_list[0::2], play_list[1::2]):
         xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
-        url = (xurl + "&file=" + urllib.quote_plus(file) + "&movie=" + urllib.quote_plus(movie) + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + 
-                "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&last_rar=" + str(last_rar))
-        item = xbmcgui.ListItem(movie, iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movie})
+        url = (xurl + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history)) +\
+              "&play_list=" + urllib.quote_plus(';'.join(new_play_list)) + "&folder=" + urllib.quote_plus(folder) +\
+              "&file_list=" + urllib.quote_plus(';'.join(rar_file_list))
+        new_play_list.remove(arch_rar)
+        new_play_list.remove(movie_file)
+        item = xbmcgui.ListItem(movie_file, iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": movie_file})
         item.setPath(url)
         isfolder = False
-        if not re.search(RE_MKV, movie, re.IGNORECASE):
-            item.setProperty("IsPlayable", "true")
+        item.setProperty("IsPlayable", "true")
         cm = []
         if sab_nzo_id_history:
             cm_url_repair = sys.argv[0] + '?' + "mode=repair" + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
@@ -402,206 +394,108 @@ def playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_hi
         cm_url_delete = sys.argv[0] + '?' + "mode=delete" + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history) + "&folder=" + urllib.quote_plus(folder)
         cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
         item.addContextMenuItems(cm, replaceItems=True)
-        xbmcplugin.addDirectoryItem(handle=HANDLE, url=url, listitem=item, isFolder=isfolder)
-    xbmcplugin.setContent(HANDLE, 'movies')
+        xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
+    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
     return 
 
-def wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history, dialog_string = None, last_rar = None):
+def wait_for_rar(folder, sab_nzo_id, some_rar):
     isCanceled = False
-    rar = False
-    size = -1
-    seconds = 0
-    file = None
-    while not rar:
-        dirList = sorted_rar_file_list(os.listdir(folder))
-        if last_rar:
-            for file in dirList:
-                if file == last_rar:
-                    filepath = os.path.join(folder, file)
-                    sizeLater = os.path.getsize(filepath)
-                    if size == sizeLater:
-                        rar = True
-                        break
-                    else:
-                        size = sizeLater
-                        break
-        else:
-            for file in dirList:
-                partrar = re.findall(RE_PART, file, re.IGNORECASE)
-                part01rar = re.findall(RE_PART01, file, re.IGNORECASE)
-                if (file.endswith(".rar") and not partrar) or part01rar:
-                    filepath = os.path.join(folder, file)
-                    sizeLater = os.path.getsize(filepath)
-                    if size == sizeLater and size > RAR_MIN_SIZE:
-                        rar = True
-                        break
-                    elif sizeLater > RAR_MIN_SIZE:
-                        size = sizeLater
-                        break
-        label = str(seconds) + " seconds"
-        if sab_nzo_id:
-            if dialog_string:
-                if last_rar:
-                    progressDialog.update(0, dialog_string, 'Waiting for last rar', label)
-                else:
-                    progressDialog.update(0, dialog_string, 'Waiting for first rar', label)
-            else:
-                progressDialog.update(0, 'Waiting for first rar', label)
+    is_rar_found = False
+    # If some_rar exist we skip dialogs
+    for file, bytes in sorted_rar_file_list(list_dir(folder)):
+        if file == some_rar:
+            is_rar_found = True
+            break
+    if not is_rar_found:
+        seconds = 0
+        progressDialog = xbmcgui.DialogProgress()
+        progressDialog.create('NZBS', 'Request to SABnzbd succeeded, waiting for ', some_rar)
+        while not is_rar_found:
+            seconds += 1
+            time.sleep(1)
+            dirList = sorted_rar_file_list(list_dir(folder))
+            for file, bytes in dirList:
+                if file == some_rar:
+                    is_rar_found = True
+                    break
+            label = str(seconds) + " seconds"
+            # TODO
+            # Shorten some_rar if to long for the dialog window
+            progressDialog.update(0, 'Request to SABnzbd succeeded, waiting for', some_rar, label)
             if progressDialog.iscanceled():
+                progressDialog.close()
                 dialog = xbmcgui.Dialog()
                 ret = dialog.select('What do you want to do?', ['Delete job', 'Just download'])
                 if ret == 0:
-                    if sab_nzo_id:
-                        pause = SABNZBD.pause('',sab_nzo_id)
-                        time.sleep(3)
-                        delete_ = SABNZBD.delete_queue('',sab_nzo_id)
-                    else:
-                        delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
+                    pause = SABNZBD.pause('',sab_nzo_id)
+                    time.sleep(3)
+                    delete_ = SABNZBD.delete_queue('',sab_nzo_id)
                     if not "ok" in delete_:
                         xbmc.log(delete_)
                         xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
                     else:
                         xbmc.executebuiltin('Notification("NZBS","Deleting succeeded")')
                     iscanceled = True
-                    return file, iscanceled 
+                    return iscanceled 
                 if ret == 1:
                     iscanceled = True
                     xbmc.executebuiltin('Notification("NZBS","Downloading")')
-                    return file, iscanceled
-        seconds += 1
-        time.sleep(1)
-    return file, isCanceled
+                    return iscanceled
+        progressDialog.close()
+    return isCanceled
 
 def list_movie(params):
     get = params.get
     mode = get("mode")
-    file = urllib.unquote_plus(get("file"))
     file_list = urllib.unquote_plus(get("file_list")).split(";")
-    movie_list = urllib.unquote_plus(get("movie_list")).split(";")
+    play_list = urllib.unquote_plus(get("play_list")).split(";")
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
-    last_rar = get("last_rar")
-    return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history, last_rar)
+    return playlist_item(play_list, file_list, folder, sab_nzo_id, sab_nzo_id_history)
 
 def list_incomplete(params):
     get = params.get
     nzbname = get("nzbname")
     nzbname = urllib.unquote_plus(nzbname)
-    sab_nzo_id = get("nzoid")
-    sab_nzo_id_history = get("nzoidhistory")
     folder = INCOMPLETE_FOLDER + nzbname
-    progressDialog = xbmcgui.DialogProgress()
-    if sab_nzo_id:
-        progressDialog.create('NZBS', 'Waiting for first rar')
-    file, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history)
-    if not iscanceled:
-        if sab_nzo_id:
-            progressDialog.update(0, 'First rar downloaded', 'pausing SABnzbd')
-            pause = SABNZBD.pause('',sab_nzo_id)
-            if "ok" in pause:
-                progressDialog.update(0, 'First rar downloaded', 'SABnzbd paused')
-            else:
-                xbmc.log(pause)
-                progressDialog.update(0, 'Request to SABnzbd failed!')
-                time.sleep(2)
-            # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
-            setstreaming = SABNZBD.setStreaming('', sab_nzo_id)
-            if not "ok" in setstreaming:
-                xbmc.log(setstreaming)
-                progressDialog.update(0, 'Stream request to SABnzbd failed!')
-                time.sleep(2)
-            progressDialog.close()
-        file_list = SABNZBD.file_list(sab_nzo_id)
-        movie_list = movie_filenames(folder, file)
-        mkv = False
-        for movie in movie_list:
-            if re.search(RE_MKV, movie, re.IGNORECASE):
-                mkv = True
-        if mkv:
-            last_rar = find_last_rar(file_list, folder)
-            progressDialog = xbmcgui.DialogProgress()
-            if sab_nzo_id:
-                progressDialog.create('NZBS', 'MKV - Waiting for last rar')
-            last_rar, iscanceled = wait_for_rar(progressDialog, folder, sab_nzo_id, sab_nzo_id_history,'Request to SABnzbd succeeded' ,last_rar)
-            if not iscanceled:
-                if sab_nzo_id:
-                    progressDialog.update(0, 'Last rar downloaded', 'pausing SABnzbd')
-                    pause = SABNZBD.pause('',sab_nzo_id)
-                    if "ok" in pause:
-                        progressDialog.update(0, 'Last rar downloaded', 'SABnzbd paused')
-                    else:
-                        xbmc.log(pause)
-                        progressDialog.update(0, 'Request to SABnzbd failed!')
-                        time.sleep(2)
-                    # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
-                    setstreaming = SABNZBD.setStreaming('', sab_nzo_id)
-                    if not "ok" in setstreaming:
-                        xbmc.log(setstreaming)
-                        progressDialog.update(0, 'Stream request to SABnzbd failed!')
-                        time.sleep(2)
-                    progressDialog.close()
-                playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history, last_rar)
-            else:
-                return
-        else:    
-            return playlist_item(file, file_list, movie_list, folder, sab_nzo_id, sab_nzo_id_history)
-    else:
-        return
+    pre_play(nzbname, MODE_INCOMPLETE_LIST)
 
 def play_video(params):
     get = params.get
     mode = get("mode")
-    file = get("file")
-    file = urllib.unquote_plus(file)
     file_list = get("file_list")
     file_list = urllib.unquote_plus(file_list).split(";")
-    movie = get("movie")
-    movie = urllib.unquote_plus(movie)
+    play_list = get("play_list")
+    play_list = urllib.unquote_plus(play_list).split(";")
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
-    last_rar = get("last_rar")
-    if last_rar:
-        if "None" in last_rar:
-            last_rar = False
-        else:
-            last_rar = True
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
         write_fake(sab_nzo_id, file_list, folder)
-        # lets play the movie
-        if not movie:
-            movie = movie_filenames(folder, file)[0]
-        raruri = "rar://" + rarpath_fixer(folder, file) + "/" + movie
-        item = xbmcgui.ListItem(movie, iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movie})
+        # Prepare potential file stacking
+        if (len(play_list) > 2):
+            rar = []
+            for arch_rar, movie_file in zip(play_list[0::2], play_list[1::2]):
+                raruri = "rar://" + rarpath_fixer(folder, arch_rar) + "/" + movie_file
+                print raruri
+                rar.append(raruri)
+                raruri = 'stack://' + ' , '.join(rar)
+        else:
+            raruri = "rar://" + rarpath_fixer(folder, play_list[0]) + "/" + play_list[1]
+        item = xbmcgui.ListItem(play_list[1], iconImage='', thumbnailImage='')
+        item.setInfo(type="Video", infoLabels={ "Title": play_list[1]})
         item.setPath(raruri)
         item.setProperty("IsPlayable", "true")
         xbmcplugin.setContent(HANDLE, 'movies')
         if mode == MODE_AUTO_PLAY:
-            if re.search(RE_MKV, movie, re.IGNORECASE) and not last_rar:
-                remove_fake(sab_nzo_id, file_list, folder)
-                t = Thread(target=get_last_rar, args=(folder, sab_nzo_id, file_list, file))
-                t.start()
-                return
-            else:
-                xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
+            xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
         else:
-            if re.search(RE_MKV, movie, re.IGNORECASE) and not last_rar:
-                remove_fake(sab_nzo_id, file_list, folder)
-                t = Thread(target=get_last_rar, args=(folder, sab_nzo_id, file_list, file))
-                t.start()
-                return
-            else:
-                #TODO ugly hack
-                if re.search(RE_MKV, movie, re.IGNORECASE):
-                    xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
-                else:
-                    xbmcplugin.setResolvedUrl(handle=HANDLE, succeeded=True, listitem=item)
+            xbmcplugin.setResolvedUrl(handle=HANDLE, succeeded=True, listitem=item)
         wait = 0
         time.sleep(3)
         while (wait <= 10):
@@ -611,8 +505,8 @@ def play_video(params):
                 break
         # if the item is in the queue we remove the temp files
         remove_fake(sab_nzo_id, file_list, folder)
-        add_to_playlist(file, file_list, folder)
     else:
+        # TODO Notification
         progressDialog = xbmcgui.DialogProgress()
         progressDialog.create('NZBS', 'File deleted')
         time.sleep(1)
@@ -642,107 +536,121 @@ def remove_fake(sab_nzo_id, file_list, folder):
                     os.remove(filename)
                     if os.path.exists(filename_one):
                         os.rename(filename_one, filename)
+        # TODO remove?
         resume = SABNZBD.resume('', sab_nzo_id)
         if not "ok" in resume:
             xbmc.log(resume)
     return
 
-def get_last_rar(folder, sab_nzo_id, file_list, first_rar):
-    nzbname = os.path.basename(folder)
-    last_rar = find_last_rar(file_list, folder)
-    sab_nzf_id = SABNZBD.nzf_id(sab_nzo_id, last_rar)
-    if sab_nzf_id:
-        SABNZBD.file_list_position(sab_nzo_id, [sab_nzf_id], 0)
-    get_rar(nzbname, first_rar, last_rar)
-    return
+def list_dir(folder):
+    file_list = []
+    for filename in os.listdir(folder):
+        row = []
+        row.append(filename)
+        bytes = os.path.getsize(os.path.join(folder,filename))
+        row.append(bytes)
+        file_list.append(row)
+    return file_list
+    
+def get_rar(folder, sab_nzo_id, some_rar):
+    if sab_nzo_id:
+        sab_nzf_id = SABNZBD.nzf_id(sab_nzo_id, some_rar)
+        if sab_nzf_id:
+            SABNZBD.file_list_position(sab_nzo_id, [sab_nzf_id], 0)
+        return wait_for_rar(folder, sab_nzo_id, some_rar)
+    else:
+        return False
 
-def find_last_rar(file_list, folder):
-    file_list.extend(os.listdir(folder))
+def find_rar(file_list, index):
     rar_list = []
-    for file in file_list:
+    for file, bytes in file_list:
         partrar = re.findall(RE_PART, file)
         rrar = re.findall(RE_R, file)
         if partrar or rrar:
             rar_list.append(file)
     if len(rar_list) > 1:
         rar_list.sort()
-    return rar_list[-1]
-
-def add_to_playlist(file, file_list, folder):
-    fileStr = str(file)
-    RE_CD_obj = re.compile(RE_CD, re.IGNORECASE)
-    RE_A_obj = re.compile(RE_A, re.IGNORECASE)
-    cd_file = RE_CD_obj.sub(r"\g<1>2", fileStr)
-    a_file = RE_A_obj.sub(r"b.\g<1>", fileStr)
-    if not cd_file == a_file:
-        if len(file_list) == 1:
-            file_list = sorted_rar_file_list(os.listdir(folder))
-        for hit in file_list:
-            if hit == a_file:
-                file2str = a_file
-            if hit == cd_file:
-                file2str = cd_file
-        playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
-        item = xbmcgui.ListItem(file2str, iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": file2str})
-        item.setProperty("IsPlayable", "true")
-        position = playlist.getposition() + 1
-        url = sys.argv[0] + '?' + "mode=play" + "&file=" + urllib.quote_plus(file2str) + "&movie=" + "&file_list=" + urllib.quote_plus(';'.join(file_list)) + "&folder=" + urllib.quote_plus(folder) + "&nzoid=Blank" + "&nzoidhistory=Blank"
-        playlist.add(url, item, position)
-    return
+    return rar_list[index]
 
 def movie_filenames(folder, file):
     filepath = os.path.join(folder, file)
     rf = rarfile.RarFile(filepath)
-    movieFileList = sort_filename(rf.namelist())
+    movie_file_list = sort_filename(rf.namelist())
     for f in rf.infolist():
         if f.compress_type != 48:
             xbmc.executebuiltin('Notification("NZBS","Compressed rar!!!")')
-    return movieFileList
+    return movie_file_list
+    
+def is_movie_mkv(movie_list):
+    mkv = False
+    for movie in movie_list:
+        if re.search(RE_MKV, movie, re.IGNORECASE):
+            mkv = True
+    return mkv
 
-def sort_filename(filenameList):
-    outList = filenameList[:]
-    if len(filenameList) == 1:
+def no_sample_list(movie_list):
+    outList = movie_list[:]
+    for i in range(len(movie_list)):
+        match = re.search(RE_SAMPLE, movie_list[i], re.IGNORECASE)
+        if match:
+            outList.remove(movie_list[i])
+    if len(outList) == 0:
+        # We return sample if it's the only file left 
+        outList.append(movie_list[0])
+    return outList
+        
+def sort_filename(filename_list):
+    outList = filename_list[:]
+    if len(filename_list) == 1:
         return outList
     else:
-        for i in range(len(filenameList)):
-            match = re.search(RE_MOVIE, filenameList[i], re.IGNORECASE)
+        for i in range(len(filename_list)):
+            match = re.search(RE_MOVIE, filename_list[i], re.IGNORECASE)
             if not match:
-                outList.remove(filenameList[i])
+                outList.remove(filename_list[i])
         if len(outList) == 0:
-            outList.append(filenameList[0])
+            outList.append(filename_list[0])
         return outList
 
 def delete(params):
     get = params.get
     sab_nzo_id = get("nzoid")
     sab_nzo_id_history = get("nzoidhistory")
+    sab_nzo_id_history_list = get("nzoidhistory_list")
+    if sab_nzo_id_history_list:
+        sab_nzo_id_history_list = urllib.unquote_plus(sab_nzo_id_history_list).split(";")
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     incomplete = get("incomplete")
-    xbmc.executebuiltin('Notification("NZBS","Deleting '+ folder +'")')
+    delete_all = get("delete_all")
+    if delete_all:
+        xbmc.executebuiltin('Notification("NZBS","Deleting all incomplete")')
+    else:
+        xbmc.executebuiltin('Notification("NZBS","Deleting '+ folder +'")')
     if sab_nzo_id or sab_nzo_id_history:
+        delete_ = "ok"
         if sab_nzo_id:
-            if not "None" in sab_nzo_id:
+            if not "None" in sab_nzo_id and not delete_all:
                 pause = SABNZBD.pause('',sab_nzo_id)
                 time.sleep(3)
                 if "ok" in pause:
                     delete_ = SABNZBD.delete_queue('',sab_nzo_id)
-                    if "ok" in delete_:
-                        xbmc.executebuiltin('Notification("NZBS","Deleting succeeded")')
-                    else:
-                        xbmc.log(delete_)
-                        xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
                 else:
-                    xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
+                    delete_ = "failed"
         if  sab_nzo_id_history:
-            if not "None" in sab_nzo_id_history:
+            if not "None" in sab_nzo_id_history and not delete_all:
                 delete_ = SABNZBD.delete_history('',sab_nzo_id_history)
-                if "ok" in delete_:
-                    xbmc.executebuiltin('Notification("NZBS","Deleting succeeded")')
-                else:
-                    xbmc.log(delete_)
-                    xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
+        if delete_all and sab_nzo_id_history_list:
+            for sab_nzo_id_history_item in sab_nzo_id_history_list:
+                delete_state = SABNZBD.delete_history('',sab_nzo_id_history_item)
+                if delete_state is not delete_:
+                    delete_state = "failed"
+            delete_ = delete_state
+        if "ok" in delete_:
+            xbmc.executebuiltin('Notification("NZBS","Deleting succeeded")')
+        else:
+            xbmc.log(delete_)
+            xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
     else:
         xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
     time.sleep(2)
@@ -787,6 +695,7 @@ def repair(params):
     return
 
 def incomplete():
+    active_nzbname_list = []
     m_nzbname_list = []
     m_row = []
     for folder in os.listdir(INCOMPLETE_FOLDER):
@@ -797,12 +706,23 @@ def incomplete():
             m_nzbname_list.append(m_row)
             m_row = []
         else:
-            url = "&nzoid=" + str(sab_nzo_id) + "&nzbname=" + urllib.quote_plus(folder)
-            add_posts(folder, url, MODE_INCOMPLETE_LIST)
+            m_row.append(folder)
+            m_row.append(sab_nzo_id)
+            active_nzbname_list.append(m_row)
+            m_row = []
     nzbname_list = SABNZBD.nzo_id_history_list(m_nzbname_list)
+    nzoid_history_list = [x[1] for x in nzbname_list if x[1] is not None]
+    for row in active_nzbname_list:
+        url = "&nzoid=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0]) +\
+              "&nzoidhistory_list=" + urllib.quote_plus(';'.join(nzoid_history_list)) +\
+              "&folder=" + urllib.quote_plus(row[0])
+        title = "Active - " + row[0]
+        add_posts(title, url, MODE_INCOMPLETE_LIST)
     for row in nzbname_list:
         if row[1]:
-            url = "&nzoidhistory=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0])
+            url = "&nzoidhistory=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0]) +\
+                  "&nzoidhistory_list=" + urllib.quote_plus(';'.join(nzoid_history_list)) +\
+                  "&folder=" + urllib.quote_plus(row[0])
             add_posts(row[0], url, MODE_INCOMPLETE_LIST)
     return
 
@@ -874,7 +794,8 @@ if (__name__ == "__main__" ):
         get = params.get
         if get("mode")== MODE_LIST:
             if is_nzb_home(params):
-                get_rar(nzbname)
+                nzbname = urllib.unquote_plus(get("nzbname"))
+                pre_play(nzbname)
         if get("mode")== MODE_MOVIE_LIST:
             list_movie(params)
         if get("mode")== MODE_PLAY or get("mode")== MODE_AUTO_PLAY:
