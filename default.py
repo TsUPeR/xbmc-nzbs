@@ -38,23 +38,11 @@ import xbmcplugin
 from xml.dom.minidom import parse, parseString
 import rarfile
 from sabnzbd import sabnzbd
-from threading import Thread
+
+import utils
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
-
-RE_PART = '.part\d{2,3}.rar$'
-RE_PART01 = '.part0{1,2}1.rar$'
-RE_R = '.r\d{2,3}$'
-RE_CD = '(dvd|cd|bluray)1'
-RE_A = 'a\.(rar|part01.rar)$'
-RE_AVI = 'a\.(avi)$'
-RE_MOVIE = '\.avi$|\.mkv$|\.iso$|\.img$'
-RE_SAMPLE = '-sample'
-RE_MKV = '\.mkv$'
-
-RAR_HEADER = "Rar!\x1a\x07\x00"
-RAR_MIN_SIZE = 10485760
 
 NS_MEDIA = "http://search.yahoo.com/mrss/"
 NS_REPORT = "http://www.newzbin.com/DTD/2007/feeds/report/"
@@ -199,18 +187,6 @@ def add_posts(title, url, mode, description='', thumb='', folder=True):
         cm.append(("Delete all inactive" , "XBMC.RunPlugin(%s)" % (cm_url_delete_all)))
         listitem.addContextMenuItems(cm, replaceItems=False)
     return xbmcplugin.addDirectoryItem(handle=HANDLE, url=xurl, listitem=listitem, isFolder=folder)
- 
-# FROM plugin.video.youtube.beta  -- converts the request url passed on by xbmc to our plugin into a dict  
-def get_parameters(parameterString):
-    commands = {}
-    splitCommands = parameterString[parameterString.find('?')+1:].split('&')
-    for command in splitCommands: 
-        if (len(command) > 0):
-            splitCommand = command.split('=')
-            name = splitCommand[0]
-            value = splitCommand[1]
-            commands[name] = value  
-    return commands
     
 def is_nzb_home(params):
     get = params.get
@@ -276,15 +252,15 @@ def pre_play(nzbname, mode = None):
     iscanceled = False
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
-    file_list = list_dir(folder)
+    file_list = utils.list_dir(folder)
     multi_arch_list = []
     if sab_nzo_id is None:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
     else:
         file_list.extend(SABNZBD.file_list(sab_nzo_id))
         sab_nzo_id_history = None
-    file_list = sorted_rar_file_list(file_list)
-    multi_arch_list = sorted_multi_arch_list(file_list)
+    file_list = utils.sorted_rar_file_list(file_list)
+    multi_arch_list = utils.sorted_multi_arch_list(file_list)
     # Loop though all multi archives and add file to the 
     play_list = []
     for arch_rar, byte in multi_arch_list:
@@ -304,7 +280,7 @@ def pre_play(nzbname, mode = None):
                 xbmc.executebuiltin('Notification("NZBS","Not a movie!")')
                 break
             # Who needs sample?
-            movie_no_sample_list = no_sample_list(movie_list)
+            movie_no_sample_list = utils.no_sample_list(movie_list)
             # If auto play is enabled we skip samples in the play_list
             if AUTO_PLAY and mode is not MODE_INCOMPLETE_LIST:
                 for movie_file in movie_no_sample_list:
@@ -315,12 +291,12 @@ def pre_play(nzbname, mode = None):
                     play_list.append(arch_rar)
                     play_list.append(movie_file)
             # If the movie is a .mkv we need the last rar
-            if is_movie_mkv(movie_list) and sab_nzo_id:
+            if utils.is_movie_mkv(movie_list) and sab_nzo_id:
                 # If we have a sample the second rar is also needed..
                 if len(movie_no_sample_list) != len(movie_list):
-                    second_rar = find_rar(file_list, 0)
+                    second_rar = utils.find_rar(file_list, 0)
                     iscanceled = get_rar(folder, sab_nzo_id, second_rar)
-                last_rar = find_rar(file_list, -1)
+                last_rar = utils.find_rar(file_list, -1)
                 iscanceled =  get_rar(folder, sab_nzo_id, last_rar)
                 if iscanceled: 
                     break 
@@ -349,29 +325,14 @@ def set_streaming(sab_nzo_id):
         time.sleep(1)
     return
 
-def sorted_rar_file_list(rar_file_list):
-    file_list = []
-    if len(rar_file_list) > 0:
-        for file, bytes in rar_file_list:
-            partrar = re.findall(RE_PART, file)
-            rrar = re.findall(RE_R, file)
-            if ((file.endswith(".rar") and not partrar) or partrar or rrar):
-                file_list.append([file, bytes])
-        if len(file_list) > 1:
-            file_list.sort()
-    return file_list
-
-def sorted_multi_arch_list(rar_file_list):
-    file_list = []
-    for file, bytes in rar_file_list:
-        partrar = re.findall(RE_PART, file)
-        part01rar = re.findall(RE_PART01, file)
-        # No small sub archives
-        if ((file.endswith(".rar") and not partrar) or part01rar) and bytes > RAR_MIN_SIZE:
-            file_list.append([file, bytes])
-    if len(file_list) > 1:
-        file_list.sort()
-    return file_list
+def movie_filenames(folder, file):
+    filepath = os.path.join(folder, file)
+    rf = rarfile.RarFile(filepath)
+    movie_file_list = utils.sort_filename(rf.namelist())
+    for f in rf.infolist():
+        if f.compress_type != 48:
+            xbmc.executebuiltin('Notification("NZBS","Compressed rar!!!")')
+    return movie_file_list
 
 def playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_history):
     new_play_list = play_list[:]
@@ -397,12 +358,21 @@ def playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_histo
         xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
     xbmcplugin.setContent(int(sys.argv[1]), 'movies')
     return 
+    
+def get_rar(folder, sab_nzo_id, some_rar):
+    if sab_nzo_id:
+        sab_nzf_id = SABNZBD.nzf_id(sab_nzo_id, some_rar)
+        if sab_nzf_id:
+            SABNZBD.file_list_position(sab_nzo_id, [sab_nzf_id], 0)
+        return wait_for_rar(folder, sab_nzo_id, some_rar)
+    else:
+        return False
 
 def wait_for_rar(folder, sab_nzo_id, some_rar):
     isCanceled = False
     is_rar_found = False
     # If some_rar exist we skip dialogs
-    for file, bytes in sorted_rar_file_list(list_dir(folder)):
+    for file, bytes in utils.sorted_rar_file_list(utils.list_dir(folder)):
         if file == some_rar:
             is_rar_found = True
             break
@@ -413,7 +383,7 @@ def wait_for_rar(folder, sab_nzo_id, some_rar):
         while not is_rar_found:
             seconds += 1
             time.sleep(1)
-            dirList = sorted_rar_file_list(list_dir(folder))
+            dirList = utils.sorted_rar_file_list(utils.list_dir(folder))
             for file, bytes in dirList:
                 if file == some_rar:
                     is_rar_found = True
@@ -476,17 +446,17 @@ def play_video(params):
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
-        write_fake(sab_nzo_id, file_list, folder)
+        utils.write_fake(sab_nzo_id, file_list, folder)
         # Prepare potential file stacking
         if (len(play_list) > 2):
             rar = []
             for arch_rar, movie_file in zip(play_list[0::2], play_list[1::2]):
-                raruri = "rar://" + rarpath_fixer(folder, arch_rar) + "/" + movie_file
+                raruri = "rar://" + utils.rarpath_fixer(folder, arch_rar) + "/" + movie_file
                 print raruri
                 rar.append(raruri)
                 raruri = 'stack://' + ' , '.join(rar)
         else:
-            raruri = "rar://" + rarpath_fixer(folder, play_list[0]) + "/" + play_list[1]
+            raruri = "rar://" + utils.rarpath_fixer(folder, play_list[0]) + "/" + play_list[1]
         item = xbmcgui.ListItem(play_list[1], iconImage='', thumbnailImage='')
         item.setInfo(type="Video", infoLabels={ "Title": play_list[1]})
         item.setPath(raruri)
@@ -504,7 +474,7 @@ def play_video(params):
             if xbmc.Player().isPlayingVideo():
                 break
         # if the item is in the queue we remove the temp files
-        remove_fake(sab_nzo_id, file_list, folder)
+        utils.remove_fake(sab_nzo_id, file_list, folder)
     else:
         # TODO Notification
         progressDialog = xbmcgui.DialogProgress()
@@ -514,103 +484,6 @@ def play_video(params):
         time.sleep(1)
         xbmc.executebuiltin("Action(ParentDir)")
     return
-
-def write_fake(sab_nzo_id, file_list, folder):
-    if not "None" in sab_nzo_id:
-                for filebasename in file_list:
-                    filename = os.path.join(folder, filebasename)
-                    if not os.path.exists(filename):
-                            # make 7 byte file with a rar header
-                            fd = open(filename,'wb')
-                            fd.write(RAR_HEADER)
-                            fd.close()
-    return
-
-def remove_fake(sab_nzo_id, file_list, folder):
-    if not "None" in sab_nzo_id:
-        for filebasename in file_list:
-            filename = os.path.join(folder, filebasename)
-            filename_one = os.path.join(folder, (filebasename + ".1"))
-            if os.path.exists(filename):
-                if os.stat(filename).st_size == 7:
-                    os.remove(filename)
-                    if os.path.exists(filename_one):
-                        os.rename(filename_one, filename)
-        # TODO remove?
-        resume = SABNZBD.resume('', sab_nzo_id)
-        if not "ok" in resume:
-            xbmc.log(resume)
-    return
-
-def list_dir(folder):
-    file_list = []
-    for filename in os.listdir(folder):
-        row = []
-        row.append(filename)
-        bytes = os.path.getsize(os.path.join(folder,filename))
-        row.append(bytes)
-        file_list.append(row)
-    return file_list
-    
-def get_rar(folder, sab_nzo_id, some_rar):
-    if sab_nzo_id:
-        sab_nzf_id = SABNZBD.nzf_id(sab_nzo_id, some_rar)
-        if sab_nzf_id:
-            SABNZBD.file_list_position(sab_nzo_id, [sab_nzf_id], 0)
-        return wait_for_rar(folder, sab_nzo_id, some_rar)
-    else:
-        return False
-
-def find_rar(file_list, index):
-    rar_list = []
-    for file, bytes in file_list:
-        partrar = re.findall(RE_PART, file)
-        rrar = re.findall(RE_R, file)
-        if partrar or rrar:
-            rar_list.append(file)
-    if len(rar_list) > 1:
-        rar_list.sort()
-    return rar_list[index]
-
-def movie_filenames(folder, file):
-    filepath = os.path.join(folder, file)
-    rf = rarfile.RarFile(filepath)
-    movie_file_list = sort_filename(rf.namelist())
-    for f in rf.infolist():
-        if f.compress_type != 48:
-            xbmc.executebuiltin('Notification("NZBS","Compressed rar!!!")')
-    return movie_file_list
-    
-def is_movie_mkv(movie_list):
-    mkv = False
-    for movie in movie_list:
-        if re.search(RE_MKV, movie, re.IGNORECASE):
-            mkv = True
-    return mkv
-
-def no_sample_list(movie_list):
-    outList = movie_list[:]
-    for i in range(len(movie_list)):
-        match = re.search(RE_SAMPLE, movie_list[i], re.IGNORECASE)
-        if match:
-            outList.remove(movie_list[i])
-    if len(outList) == 0:
-        # We return sample if it's the only file left 
-        outList.append(movie_list[0])
-    return outList
-        
-def sort_filename(filename_list):
-    outList = filename_list[:]
-    if len(filename_list) == 1:
-        return outList
-    else:
-        for i in range(len(filename_list)):
-            match = re.search(RE_MOVIE, filename_list[i], re.IGNORECASE)
-            if not match:
-                outList.remove(filename_list[i])
-        if len(outList) == 0:
-            outList.append(filename_list[0])
-        return outList
 
 def delete(params):
     get = params.get
@@ -748,15 +621,6 @@ def load_xml(url):
         return None, "xml"
     return out, None
 
-def rarpath_fixer(folder, file):
-    filepath = os.path.join(folder, file)
-    filepath = filepath.replace(".","%2e")
-    filepath = filepath.replace("-","%2d")
-    filepath = filepath.replace(":","%3a")
-    filepath = filepath.replace("\\","%5c")
-    filepath = filepath.replace("/","%2f")
-    return filepath
-
 def search(dialog_name):
     searchString = unikeyboard(__settings__.getSetting( "latestSearch" ), 'Search NZBS')
     if searchString == "":
@@ -790,7 +654,7 @@ if (__name__ == "__main__" ):
             nzbs(None)
         add_posts('Incomplete', '', MODE_INCOMPLETE)
     else:
-        params = get_parameters(sys.argv[2])
+        params = utils.get_parameters(sys.argv[2])
         get = params.get
         if get("mode")== MODE_LIST:
             if is_nzb_home(params):
