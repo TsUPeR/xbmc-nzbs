@@ -145,7 +145,7 @@ class sabnzbd(object):
                 for slot in doc.getElementsByTagName("slot"):
                     filename = get_node_value(slot, "filename")
                     if filename.lower() == nzbname.lower():
-                        sab_nzo_id  = get_node_value(slot, "nzo_id")                        
+                        sab_nzo_id  = get_node_value(slot, "nzo_id")
         return sab_nzo_id
 
     def nzf_id(self, sab_nzo_id, name):
@@ -158,7 +158,7 @@ class sabnzbd(object):
                     filename = get_node_value(file, "filename")
                     status = get_node_value(file, "status")
                     if filename.lower() == name.lower() and status == "active":
-                        sab_nzf_id  = get_node_value(file, "nzf_id")                        
+                        sab_nzf_id  = get_node_value(file, "nzf_id")
         return sab_nzf_id
 
     def nzo_id_history(self, nzbname):
@@ -249,9 +249,9 @@ class sabnzbd(object):
 
 def get_node_value(parent, name, ns=""):
     if ns:
-        return parent.getElementsByTagNameNS(ns, name)[0].childNodes[0].data
+        return parent.getElementsByTagNameNS(ns, name)[0].childNodes[0].data.encode('utf-8')
     else:
-        return parent.getElementsByTagName(name)[0].childNodes[0].data
+        return parent.getElementsByTagName(name)[0].childNodes[0].data.encode('utf-8')
 
 def _load_xml(url):
     try:

@@ -25,6 +25,8 @@
 
 import re
 import os
+import htmlentitydefs
+import urllib
 
 RE_PART = '.part\d{2,3}.rar$'
 RE_PART01 = '.part0{1,2}1.rar$'
@@ -32,6 +34,7 @@ RE_R = '.r\d{2,3}$'
 RE_MOVIE = '\.avi$|\.mkv$|\.iso$|\.img$'
 RE_SAMPLE = '-sample'
 RE_MKV = '\.mkv$'
+RE_HTML = '&(\w+?);'
 
 RAR_HEADER = "Rar!\x1a\x07\x00"
 RAR_MIN_SIZE = 10485760
@@ -57,10 +60,6 @@ def remove_fake(sab_nzo_id, file_list, folder):
                     os.remove(filename)
                     if os.path.exists(filename_one):
                         os.rename(filename_one, filename)
-        # TODO remove?
-        # resume = SABNZBD.resume('', sab_nzo_id)
-        # if not "ok" in resume:
-            # xbmc.log(resume)
     return
 
 def sorted_rar_file_list(rar_file_list):
@@ -125,9 +124,10 @@ def no_sample_list(movie_list):
         # We return sample if it's the only file left 
         outList.append(movie_list[0])
     return outList
-    
+  
 def rarpath_fixer(folder, file):
     filepath = os.path.join(folder, file)
+    filepath = urllib.quote(filepath)
     filepath = filepath.replace(".","%2e")
     filepath = filepath.replace("-","%2d")
     filepath = filepath.replace(":","%3a")
@@ -159,3 +159,14 @@ def sort_filename(filename_list):
         if len(outList) == 0:
             outList.append(filename_list[0])
         return outList
+
+def descape_entity(m, defs=htmlentitydefs.entitydefs):
+    # callback: translate one entity to its ISO Latin value
+    try:
+        return defs[m.group(1)]
+    except KeyError:
+        return m.group(0) # use as is
+
+def descape(string):
+    pattern = re.compile(RE_HTML)
+    return pattern.sub(descape_entity, string)

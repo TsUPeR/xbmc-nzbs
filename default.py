@@ -452,7 +452,6 @@ def play_video(params):
             rar = []
             for arch_rar, movie_file in zip(play_list[0::2], play_list[1::2]):
                 raruri = "rar://" + utils.rarpath_fixer(folder, arch_rar) + "/" + movie_file
-                print raruri
                 rar.append(raruri)
                 raruri = 'stack://' + ' , '.join(rar)
         else:
@@ -601,9 +600,9 @@ def incomplete():
 
 def get_node_value(parent, name, ns=""):
     if ns:
-        return parent.getElementsByTagNameNS(ns, name)[0].childNodes[0].data
+        return parent.getElementsByTagNameNS(ns, name)[0].childNodes[0].data.encode('utf-8')
     else:
-        return parent.getElementsByTagName(name)[0].childNodes[0].data
+        return parent.getElementsByTagName(name)[0].childNodes[0].data.encode('utf-8')
 
 def load_xml(url):
     try:
@@ -615,7 +614,7 @@ def load_xml(url):
     xml = response.read()
     response.close()
     try:
-        out = parseString(xml)
+        out = parseString(utils.descape(xml).replace('&', '&amp;').decode('utf-8').encode('iso-8859-1'))
     except:
         xbmc.log("plugin.video.nzbs: malformed xml from url: " + url)
         return None, "xml"
