@@ -39,27 +39,25 @@ RE_HTML = '&(\w+?);'
 RAR_HEADER = "Rar!\x1a\x07\x00"
 RAR_MIN_SIZE = 10485760
 
-def write_fake(sab_nzo_id, file_list, folder):
-    if not "None" in sab_nzo_id:
-                for filebasename in file_list:
-                    filename = os.path.join(folder, filebasename)
-                    if not os.path.exists(filename):
-                            # make 7 byte file with a rar header
-                            fd = open(filename,'wb')
-                            fd.write(RAR_HEADER)
-                            fd.close()
+def write_fake(file_list, folder):
+    for filebasename in file_list:
+        filename = os.path.join(folder, filebasename)
+        if not os.path.exists(filename):
+            # make 7 byte file with a rar header
+            fd = open(filename,'wb')
+            fd.write(RAR_HEADER)
+            fd.close()
     return
 
-def remove_fake(sab_nzo_id, file_list, folder):
-    if not "None" in sab_nzo_id:
-        for filebasename in file_list:
-            filename = os.path.join(folder, filebasename)
-            filename_one = os.path.join(folder, (filebasename + ".1"))
-            if os.path.exists(filename):
-                if os.stat(filename).st_size == 7:
-                    os.remove(filename)
-                    if os.path.exists(filename_one):
-                        os.rename(filename_one, filename)
+def remove_fake(file_list, folder):
+    for filebasename in file_list:
+        filename = os.path.join(folder, filebasename)
+        filename_one = os.path.join(folder, (filebasename + ".1"))
+        if os.path.exists(filename):
+            if os.stat(filename).st_size == 7:
+                os.remove(filename)
+                if os.path.exists(filename_one):
+                    os.rename(filename_one, filename)
     return
 
 def sorted_rar_file_list(rar_file_list):

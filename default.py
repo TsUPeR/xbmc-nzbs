@@ -308,8 +308,6 @@ def pre_play(nzbname, mode = None):
         if (len(rar_file_list) >= 1):
             if AUTO_PLAY and mode is None:
                 video_params = dict()
-                video_params['nzoid'] = str(sab_nzo_id)
-                video_params['nzoidhistory'] = str(sab_nzo_id_history)
                 video_params['mode'] = MODE_AUTO_PLAY
                 video_params['play_list'] = urllib.quote_plus(';'.join(play_list))
                 video_params['file_list'] = urllib.quote_plus(';'.join(rar_file_list))
@@ -455,12 +453,10 @@ def play_video(params):
     play_list = urllib.unquote_plus(play_list).split(";")
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
-    sab_nzo_id = get("nzoid")
-    sab_nzo_id_history = get("nzoidhistory")
     # We might have deleted the path
     if os.path.exists(folder):
         # we trick xbmc to play avi by creating empty rars if the download is only partial
-        utils.write_fake(sab_nzo_id, file_list, folder)
+        utils.write_fake(file_list, folder)
         # Prepare potential file stacking
         if (len(play_list) > 2):
             rar = []
@@ -488,7 +484,7 @@ def play_video(params):
             if xbmc.Player().isPlayingVideo():
                 break
         # if the item is in the queue we remove the temp files
-        utils.remove_fake(sab_nzo_id, file_list, folder)
+        utils.remove_fake(file_list, folder)
     else:
         # TODO Notification
         progressDialog = xbmcgui.DialogProgress()
