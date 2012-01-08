@@ -274,7 +274,8 @@ def pre_play(nzbname, mode = None):
             # TODO is this needed?
             time.sleep(1)
             # RAR ANALYSYS #
-            movie_list = movie_filenames(folder, arch_rar)
+            in_rar_file_list = rar_filenames(folder, arch_rar)
+            movie_list = utils.sort_filename(in_rar_file_list)
             # Make sure we have a movie
             if not (len(movie_list) >= 1):
                 xbmc.executebuiltin('Notification("NZBS","Not a movie!")')
@@ -292,8 +293,8 @@ def pre_play(nzbname, mode = None):
                     play_list.append(movie_file)
             # If the movie is a .mkv we need the last rar
             if utils.is_movie_mkv(movie_list) and sab_nzo_id:
-                # If we have a sample the second rar is also needed..
-                if len(movie_no_sample_list) != len(movie_list):
+                # If we have a sample or other file, the second rar is also needed..
+                if len(movie_no_sample_list) != len(in_rar_file_list):
                     second_rar = utils.find_rar(file_list, 0)
                     iscanceled = get_rar(folder, sab_nzo_id, second_rar)
                 last_rar = utils.find_rar(file_list, -1)
@@ -304,17 +305,21 @@ def pre_play(nzbname, mode = None):
         return
     else:
         rar_file_list = [x[0] for x in file_list]
-        if AUTO_PLAY and mode is None: #and (len(play_list) == 2) and mode is None:
-            video_params = dict()
-            video_params['nzoid'] = str(sab_nzo_id)
-            video_params['nzoidhistory'] = str(sab_nzo_id_history)
-            video_params['mode'] = MODE_AUTO_PLAY
-            video_params['play_list'] = urllib.quote_plus(';'.join(play_list))
-            video_params['file_list'] = urllib.quote_plus(';'.join(rar_file_list))
-            video_params['folder'] = urllib.quote_plus(folder)
-            return play_video(video_params)   
+        if (len(rar_file_list) >= 1):
+            if AUTO_PLAY and mode is None:
+                video_params = dict()
+                video_params['nzoid'] = str(sab_nzo_id)
+                video_params['nzoidhistory'] = str(sab_nzo_id_history)
+                video_params['mode'] = MODE_AUTO_PLAY
+                video_params['play_list'] = urllib.quote_plus(';'.join(play_list))
+                video_params['file_list'] = urllib.quote_plus(';'.join(rar_file_list))
+                video_params['folder'] = urllib.quote_plus(folder)
+                return play_video(video_params)   
+            else:
+                return playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_history)
         else:
-            return playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_history)
+            xbmc.executebuiltin('Notification("NZBS","No rar\'s in the NZB!!")')
+            return
 
 def set_streaming(sab_nzo_id):
     # Set the post process to 0 = skip will cause SABnzbd to fail the job. requires streaming_allowed = 1 in sabnzbd.ini (6.x)
@@ -325,10 +330,10 @@ def set_streaming(sab_nzo_id):
         time.sleep(1)
     return
 
-def movie_filenames(folder, file):
+def rar_filenames(folder, file):
     filepath = os.path.join(folder, file)
     rf = rarfile.RarFile(filepath)
-    movie_file_list = utils.sort_filename(rf.namelist())
+    movie_file_list = rf.namelist()
     for f in rf.infolist():
         if f.compress_type != 48:
             xbmc.executebuiltin('Notification("NZBS","Compressed rar!!!")')
@@ -386,6 +391,15 @@ def wait_for_rar(folder, sab_nzo_id, some_rar):
             dirList = utils.sorted_rar_file_list(utils.list_dir(folder))
             for file, bytes in dirList:
                 if file == some_rar:
+                    path = os.path.join(folder,file)
+                    # Wait until the file is written to disk before proceeding
+                    size_now = int(bytes)
+                    size_later = 0
+                    while (size_now != size_later) or (size_now == 0) or (size_later == 0):
+                        size_now = os.stat(path).st_size
+                        if size_now != size_later:
+                            time.sleep(0.5)
+                            size_later = os.stat(path).st_size
                     is_rar_found = True
                     break
             label = str(seconds) + " seconds"
@@ -461,6 +475,7 @@ def play_video(params):
         item.setPath(raruri)
         item.setProperty("IsPlayable", "true")
         xbmcplugin.setContent(HANDLE, 'movies')
+        time.sleep(1)
         if mode == MODE_AUTO_PLAY:
             xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
         else:
