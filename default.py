@@ -37,7 +37,7 @@ import xbmcplugin
 
 from xml.dom.minidom import parse, parseString
 import rarfile
-from sabnzbd import sabnzbd
+import sabnzbd
 
 import utils
 
@@ -50,7 +50,7 @@ NS_NEWZNAB = "http://www.newznab.com/DTD/2010/feeds/attributes/"
 
 NUMBER = [25,50,75,100][int(__settings__.getSetting("num"))]
 
-SABNZBD = sabnzbd(__settings__.getSetting("sabnzbd_ip"),
+SABNZBD = sabnzbd.Sabnzbd(__settings__.getSetting("sabnzbd_ip"),
         __settings__.getSetting("sabnzbd_port"),__settings__.getSetting("sabnzbd_key"))
 INCOMPLETE_FOLDER = __settings__.getSetting("sabnzbd_incomplete")
 AUTO_PLAY = (__settings__.getSetting("auto_play").lower() == "true")

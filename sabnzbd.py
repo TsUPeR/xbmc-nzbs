@@ -3,7 +3,7 @@ import urllib2
 import xbmc
 from xml.dom.minidom import parse, parseString
 
-class sabnzbd(object):
+class Sabnzbd:
     def __init__ (self, ip, port, apikey):
         self.ip = ip
         self.port = port
