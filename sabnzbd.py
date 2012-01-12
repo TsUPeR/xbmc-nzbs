@@ -4,11 +4,18 @@ import xbmc
 from xml.dom.minidom import parse, parseString
 
 class Sabnzbd:
-    def __init__ (self, ip, port, apikey):
+    def __init__ (self, ip, port, apikey, username = None, password = None):
         self.ip = ip
         self.port = port
         self.apikey = apikey
         self.baseurl = "http://" + self.ip + ":" + self.port + "/api?apikey=" + apikey
+        if username and password:
+            password_manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            url = "http://" + self.ip + ":" + self.port
+            password_manager.add_password(None, url, username, password)
+            authhandler = urllib2.HTTPBasicAuthHandler(password_manager)
+            opener = urllib2.build_opener(authhandler)
+            urllib2.install_opener(opener)
     
     
     def addurl(self, nzb, nzbname):
@@ -233,7 +240,8 @@ class Sabnzbd:
                     1 : 'Up',
                     2 : 'Down',
                     3 : 'Bottom'}
-        url = "http://" + self.ip + ":" + self.port + "/sabnzbd/nzb/" + sab_nzo_id + "/bulk_operation?session=" + self.apikey + "&action_key=" + action[position]
+        url = "http://" + self.ip + ":" + self.port + "/sabnzbd/nzb/" + sab_nzo_id + "/bulk_operation?session=" \
+              + self.apikey + "&action_key=" + action[position]
         for nzf_id in sab_nzf_id:
             url = url + "&" + nzf_id + "=on"
         try:
@@ -241,11 +249,10 @@ class Sabnzbd:
             response = urllib2.urlopen(req)
         except:
             xbmc.log("plugin.video.nzbs: unable to load url: " + url)
-            xbmc.executebuiltin('Notification("NZBS","SABnzbd file moving file")')
+            xbmc.executebuiltin('Notification("NZBS","SABnzbd failed moving file to top of queue")')
             return None
         response.close()
         return
-
 
 def get_node_value(parent, name, ns=""):
     if ns:

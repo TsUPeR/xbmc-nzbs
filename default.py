@@ -51,7 +51,8 @@ NS_NEWZNAB = "http://www.newznab.com/DTD/2010/feeds/attributes/"
 NUMBER = [25,50,75,100][int(__settings__.getSetting("num"))]
 
 SABNZBD = sabnzbd.Sabnzbd(__settings__.getSetting("sabnzbd_ip"),
-        __settings__.getSetting("sabnzbd_port"),__settings__.getSetting("sabnzbd_key"))
+        __settings__.getSetting("sabnzbd_port"),__settings__.getSetting("sabnzbd_key"),
+        __settings__.getSetting("sabnzbd_user"), __settings__.getSetting("sabnzbd_pass"))
 INCOMPLETE_FOLDER = __settings__.getSetting("sabnzbd_incomplete")
 AUTO_PLAY = (__settings__.getSetting("auto_play").lower() == "true")
 
@@ -94,6 +95,7 @@ TABLE_NZBS = [['Movies', 1, 2],
         [' - Pack', 0, 25],
         [' - XviD', 0, 3],
         [' - x264', 0, 23]]
+
 
 def nzbs(params):
     if not(__settings__.getSetting("nzbs_id") and __settings__.getSetting("nzbs_key")):
@@ -688,3 +690,4 @@ if (__name__ == "__main__" ):
             list_incomplete(params)
 
 xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
+
