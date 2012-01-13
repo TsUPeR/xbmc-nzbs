@@ -36,6 +36,8 @@ import xbmcgui
 import xbmcplugin
 
 from xml.dom.minidom import parse, parseString
+from threading import Thread
+
 import rarfile
 import sabnzbd
 
@@ -255,11 +257,13 @@ def pre_play(nzbname, mode = None):
     folder = INCOMPLETE_FOLDER + nzbname
     sab_nzo_id = SABNZBD.nzo_id(nzbname)
     file_list = utils.list_dir(folder)
+    sab_file_list = []
     multi_arch_list = []
     if sab_nzo_id is None:
         sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
     else:
-        file_list.extend(SABNZBD.file_list(sab_nzo_id))
+        sab_file_list = SABNZBD.file_list(sab_nzo_id)
+        file_list.extend(sab_file_list)
         sab_nzo_id_history = None
     file_list = utils.sorted_rar_file_list(file_list)
     multi_arch_list = utils.sorted_multi_arch_list(file_list)
@@ -267,6 +271,8 @@ def pre_play(nzbname, mode = None):
     play_list = []
     for arch_rar, byte in multi_arch_list:
         if sab_nzo_id is not None:
+            t = Thread(target=to_bottom, args=(sab_nzo_id, sab_file_list, file_list))
+            t.start()
             iscanceled = get_rar(folder, sab_nzo_id, arch_rar)
         if iscanceled:
             break
@@ -427,6 +433,11 @@ def wait_for_rar(folder, sab_nzo_id, some_rar):
                     return iscanceled
         progressDialog.close()
     return isCanceled
+
+def to_bottom(sab_nzo_id, sab_file_list, file_list):
+    diff_list = list(set([x[0] for x in sab_file_list])-set([x[0] for x in file_list]))
+    nzf_list = SABNZBD.nzf_id_list(sab_nzo_id, diff_list)
+    SABNZBD.file_list_position(sab_nzo_id, nzf_list, 3)
 
 def list_movie(params):
     get = params.get

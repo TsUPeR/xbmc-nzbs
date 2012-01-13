@@ -168,6 +168,25 @@ class Sabnzbd:
                         sab_nzf_id  = get_node_value(file, "nzf_id")
         return sab_nzf_id
 
+    def nzf_id_list(self, sab_nzo_id, file_list):
+        url = self.baseurl + "&mode=get_files&output=xml&value=" + str(sab_nzo_id)
+        doc = _load_xml(url)
+        sab_nzf_id_list = []
+        file_nzf = dict()
+        if doc:
+            if doc.getElementsByTagName("file"):
+                for file in doc.getElementsByTagName("file"):
+                    filename = get_node_value(file, "filename")
+                    status = get_node_value(file, "status")
+                    if status == "active":
+                        file_nzf[filename] = get_node_value(file, "nzf_id")
+        for filename in file_list:
+            try:
+                sab_nzf_id_list.append(file_nzf[filename])
+            except:
+                xbmc.log("plugin.video.nzbs: unable to find sab_nzf_id for: " + filename)
+        return sab_nzf_id_list
+
     def nzo_id_history(self, nzbname):
         start = 0
         limit = 20
