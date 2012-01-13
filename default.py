@@ -38,9 +38,7 @@ import xbmcplugin
 from xml.dom.minidom import parse, parseString
 from threading import Thread
 
-import rarfile
 import sabnzbd
-
 import utils
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
@@ -282,7 +280,7 @@ def pre_play(nzbname, mode = None):
             # TODO is this needed?
             time.sleep(1)
             # RAR ANALYSYS #
-            in_rar_file_list = rar_filenames(folder, arch_rar)
+            in_rar_file_list = utils.rar_filenames(folder, arch_rar)
             movie_list = utils.sort_filename(in_rar_file_list)
             # Make sure we have a movie
             if not (len(movie_list) >= 1):
@@ -335,15 +333,6 @@ def set_streaming(sab_nzo_id):
         xbmc.executebuiltin('Notification("NZBS","Post process request to SABnzbd failed!")')
         time.sleep(1)
     return
-
-def rar_filenames(folder, file):
-    filepath = os.path.join(folder, file)
-    rf = rarfile.RarFile(filepath)
-    movie_file_list = rf.namelist()
-    for f in rf.infolist():
-        if f.compress_type != 48:
-            xbmc.executebuiltin('Notification("NZBS","Compressed rar!!!")')
-    return movie_file_list
 
 def playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_history):
     new_play_list = play_list[:]
@@ -507,6 +496,7 @@ def play_video(params):
         time.sleep(1)
         xbmc.executebuiltin("Action(ParentDir)")
     return
+
 
 def delete(params):
     get = params.get

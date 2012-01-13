@@ -1,5 +1,5 @@
 """
- Copyright (c) 2010 Popeye
+ Copyright (c) 2010, 2011, 2012 Popeye
 
  Permission is hereby granted, free of charge, to any person
  obtaining a copy of this software and associated documentation
@@ -27,6 +27,9 @@ import re
 import os
 import htmlentitydefs
 import urllib
+import xbmc
+
+import rarfile
 
 RE_PART = '.part\d{2,3}.rar$'
 RE_PART01 = '.part0{1,2}1.rar$'
@@ -104,6 +107,15 @@ def find_rar(file_list, index):
     if len(rar_list) > 1:
         rar_list.sort()
     return rar_list[index]
+
+def rar_filenames(folder, file):
+    filepath = os.path.join(folder, file)
+    rf = rarfile.RarFile(filepath)
+    movie_file_list = rf.namelist()
+    for f in rf.infolist():
+        if f.compress_type != 48:
+            xbmc.executebuiltin('Notification("NZBS","Compressed rar!!!")')
+    return movie_file_list
 
 def is_movie_mkv(movie_list):
     mkv = False
