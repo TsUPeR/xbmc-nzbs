@@ -427,6 +427,7 @@ def to_bottom(sab_nzo_id, sab_file_list, file_list):
     diff_list = list(set([x[0] for x in sab_file_list])-set([x[0] for x in file_list]))
     nzf_list = SABNZBD.nzf_id_list(sab_nzo_id, diff_list)
     SABNZBD.file_list_position(sab_nzo_id, nzf_list, 3)
+    return
 
 def list_movie(params):
     get = params.get
@@ -689,6 +690,9 @@ if (__name__ == "__main__" ):
             incomplete()
         if get("mode")== MODE_INCOMPLETE_LIST:
             list_incomplete(params)
+
+
+
 
 xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
 
