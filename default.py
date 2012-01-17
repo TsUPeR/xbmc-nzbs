@@ -40,6 +40,7 @@ from threading import Thread
 
 import sabnzbd
 import utils
+import nfo
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
@@ -122,11 +123,11 @@ def nzbs(params):
             elif catid:
                 url = NZBS_URL + "&catid=" + catid
                 key = "&catid=" + catid
-                add_posts('Search...', key, MODE_NZBS_SEARCH, '', '')
+                add_posts({'title':'Search...',}, key, MODE_NZBS_SEARCH)
             else:
                 url = NZBS_URL + "&type=" + typeid
                 key = "&type=" + typeid
-                add_posts('Search...', key, MODE_NZBS_SEARCH, '', '')
+                add_posts({'title':'Search...',}, key, MODE_NZBS_SEARCH)
             if url:
                 list_feed_nzbs(url)
         else:
@@ -138,27 +139,28 @@ def nzbs(params):
                     key = "&type=" + str(catid)
                 else:
                     key = "&catid=" + str(catid)
-                add_posts(name, key, MODE_NZBS, '', '')
+                add_posts({'title' : name,}, key, MODE_NZBS)
             # TODO add settings toggle
-            add_posts("My NZB\'s", '', MODE_NZBS_MY, '', '')
-            add_posts("My Searches", '', MODE_NZBS_MYSEARCH, '', '')
+            add_posts({'title':"My NZB\'s",}, '', MODE_NZBS_MY)
+            add_posts({'title':"My Searches",}, '', MODE_NZBS_MYSEARCH)
     return
 
 def list_feed_nzbs(feedUrl):
     doc, state = load_xml(feedUrl)
     if doc and not state:
         for item in doc.getElementsByTagName("item"):
-            title = get_node_value(item, "title")
-            description = re.sub('<[^<]+?>', ' ', get_node_value(item, "description"))
+            info_labels = dict()
+            info_labels['title'] = get_node_value(item, "title")
+            info_labels['plot'] = re.sub('<[^<]+?>', ' ', get_node_value(item, "description"))
             nzb = get_node_value(item, "nzb", NS_REPORT)
             thumbid = item.getElementsByTagNameNS(NS_REPORT, "imdbid")
             thumb = ""
             if thumbid:
                 thumbid = get_node_value(item, "imdbid", NS_REPORT)
                 thumb = "http://www.nzbs.org/imdb/" + thumbid + ".jpg"
-            nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(title)
+            nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(info_labels['title'])
             mode = MODE_LIST
-            add_posts(title, nzb, mode, description, thumb)
+            add_posts(info_labels, nzb, mode, thumb)
         xbmcplugin.setContent(HANDLE, 'movies')
     else:
         if state == "site":
@@ -167,9 +169,10 @@ def list_feed_nzbs(feedUrl):
             xbmc.executebuiltin('Notification("NZBS","Malformed result")')
     return
 
-def add_posts(title, url, mode, description='', thumb='', folder=True):
-    listitem=xbmcgui.ListItem(title, iconImage="DefaultFolder.png", thumbnailImage=thumb)
-    listitem.setInfo(type="Video", infoLabels={ "Title": title, "Plot" : description })
+def add_posts(info_labels, url, mode, thumb='', fanart='', folder=True):
+    listitem=xbmcgui.ListItem(info_labels['title'], iconImage="DefaultVideo.png", thumbnailImage=thumb)
+    listitem.setInfo(type="Video", infoLabels=info_labels)
+    listitem.setProperty("Fanart_Image", fanart)
     xurl = "%s?mode=%s" % (sys.argv[0],mode)
     xurl = xurl + url
     listitem.setPath(xurl)
@@ -232,6 +235,8 @@ def is_nzb_home(params):
                     progressDialog.update(0, 'Failed to prioritize the nzb!')
                     time.sleep(2)
                 progressDialog.close()
+                t = Thread(target=save_nfo, args=(folder,))
+                t.start()
                 return True
             else:
                 return False
@@ -250,6 +255,10 @@ def is_nzb_home(params):
             progressDialog.close()
         # TODO make sure there is also a NZB in the queue
         return True
+
+def save_nfo(folder):
+    nfo.NfoLabels(folder).save()
+    return
 
 def pre_play(nzbname, mode = None):
     iscanceled = False
@@ -270,7 +279,7 @@ def pre_play(nzbname, mode = None):
     play_list = []
     for arch_rar, byte in multi_arch_list:
         if sab_nzo_id is not None:
-            t = Thread(target=to_bottom, args=(sab_nzo_id, sab_file_list, file_list))
+            t = Thread(target=to_bottom, args=(sab_nzo_id, sab_file_list, file_list,))
             t.start()
             iscanceled = get_rar(folder, sab_nzo_id, arch_rar)
         if iscanceled:
@@ -341,14 +350,16 @@ def set_streaming(sab_nzo_id):
 def playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_history):
     new_play_list = play_list[:]
     for arch_rar, movie_file in zip(play_list[0::2], play_list[1::2]):
+        info = nfo.ReadNfoLabels(folder)
         xurl = "%s?mode=%s" % (sys.argv[0],MODE_PLAY)
         url = (xurl + "&nzoid=" + str(sab_nzo_id) + "&nzoidhistory=" + str(sab_nzo_id_history)) +\
               "&play_list=" + urllib.quote_plus(';'.join(new_play_list)) + "&folder=" + urllib.quote_plus(folder) +\
               "&file_list=" + urllib.quote_plus(';'.join(rar_file_list))
         new_play_list.remove(arch_rar)
         new_play_list.remove(movie_file)
-        item = xbmcgui.ListItem(movie_file, iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": movie_file})
+        item = xbmcgui.ListItem(movie_file, iconImage='DefaultVideo.png', thumbnailImage=info.thumbnail)
+        item.setInfo(type="Video", infoLabels=info.info_labels)
+        item.setProperty("Fanart_Image", info.fanart)
         item.setPath(url)
         isfolder = False
         item.setProperty("IsPlayable", "true")
@@ -473,8 +484,9 @@ def play_video(params):
                 raruri = 'stack://' + ' , '.join(rar)
         else:
             raruri = "rar://" + utils.rarpath_fixer(folder, play_list[0]) + "/" + play_list[1]
-        item = xbmcgui.ListItem(play_list[1], iconImage='', thumbnailImage='')
-        item.setInfo(type="Video", infoLabels={ "Title": play_list[1]})
+        info = nfo.NfoLabels()
+        item = xbmcgui.ListItem(info.info_labels['title'], iconImage='DefaultVideo.png', thumbnailImage=info.thumbnail)
+        item.setInfo(type="Video", infoLabels=info.info_labels)
         item.setPath(raruri)
         item.setProperty("IsPlayable", "true")
         xbmcplugin.setContent(HANDLE, 'movies')
@@ -607,14 +619,17 @@ def incomplete():
         url = "&nzoid=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0]) +\
               "&nzoidhistory_list=" + urllib.quote_plus(';'.join(nzoid_history_list)) +\
               "&folder=" + urllib.quote_plus(row[0])
-        title = "Active - " + row[0]
-        add_posts(title, url, MODE_INCOMPLETE_LIST)
+        info = nfo.ReadNfoLabels(os.path.join(INCOMPLETE_FOLDER, row[0]))
+        info.info_labels['title'] = "Active - " + info.info_labels['title']
+        add_posts(info.info_labels, url, MODE_INCOMPLETE_LIST, info.thumbnail, info.fanart)
     for row in nzbname_list:
         if row[1]:
             url = "&nzoidhistory=" + str(row[1]) + "&nzbname=" + urllib.quote_plus(row[0]) +\
                   "&nzoidhistory_list=" + urllib.quote_plus(';'.join(nzoid_history_list)) +\
                   "&folder=" + urllib.quote_plus(row[0])
-            add_posts(row[0], url, MODE_INCOMPLETE_LIST)
+            info = nfo.ReadNfoLabels(os.path.join(INCOMPLETE_FOLDER, row[0]))
+            add_posts(info.info_labels, url, MODE_INCOMPLETE_LIST, info.thumbnail, info.fanart)
+    xbmcplugin.setContent(HANDLE, 'movies')
     return
 
 def get_node_value(parent, name, ns=""):
@@ -670,7 +685,7 @@ if (__name__ == "__main__" ):
     if (not sys.argv[2]):
         if __settings__.getSetting("nzbs_enable").lower() == "true":
             nzbs(None)
-        add_posts('Incomplete', '', MODE_INCOMPLETE)
+        add_posts({'title':'Incomplete'}, '', MODE_INCOMPLETE)
     else:
         params = utils.get_parameters(sys.argv[2])
         get = params.get
@@ -700,4 +715,5 @@ if (__name__ == "__main__" ):
                 pre_play(nzbname, MODE_JSONRPC)
 
 xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
+
 
