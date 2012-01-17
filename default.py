@@ -65,6 +65,7 @@ MODE_DELETE = "delete"
 MODE_REPAIR = "repair"
 MODE_INCOMPLETE = "incomplete"
 MODE_INCOMPLETE_LIST = "incomplete_list"
+MODE_JSONRPC = "jsonrpc"
 
 # ---NZBS---
 MODE_NZBS = "nzbs"
@@ -312,9 +313,12 @@ def pre_play(nzbname, mode = None):
     else:
         rar_file_list = [x[0] for x in file_list]
         if (len(rar_file_list) >= 1):
-            if AUTO_PLAY and mode is None:
+            if AUTO_PLAY and ( mode is None or mode is MODE_JSONRPC):
                 video_params = dict()
-                video_params['mode'] = MODE_AUTO_PLAY
+                if not mode:
+                    video_params['mode'] = MODE_AUTO_PLAY
+                else:
+                    video_params['mode'] = MODE_JSONRPC
                 video_params['play_list'] = urllib.quote_plus(';'.join(play_list))
                 video_params['file_list'] = urllib.quote_plus(';'.join(rar_file_list))
                 video_params['folder'] = urllib.quote_plus(folder)
@@ -690,9 +694,10 @@ if (__name__ == "__main__" ):
             incomplete()
         if get("mode")== MODE_INCOMPLETE_LIST:
             list_incomplete(params)
-
-
-
+        if get("mode")== MODE_JSONRPC:
+            if is_nzb_home(params):
+                nzbname = urllib.unquote_plus(get("nzbname"))
+                pre_play(nzbname, MODE_JSONRPC)
 
 xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
 
