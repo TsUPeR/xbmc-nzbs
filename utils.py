@@ -35,7 +35,7 @@ RE_PART = '.part\d{2,3}.rar$'
 RE_PART01 = '.part0{1,2}1.rar$'
 RE_R = '.r\d{2,3}$'
 RE_MOVIE = '\.avi$|\.mkv$|\.iso$|\.img$'
-RE_SAMPLE = '-sample'
+RE_SAMPLE = 'sample'
 RE_MKV = '\.mkv$'
 RE_HTML = '&(\w+?);'
 

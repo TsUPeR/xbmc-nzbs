@@ -310,7 +310,7 @@ def pre_play(nzbname, mode = None):
             # If the movie is a .mkv we need the last rar
             if utils.is_movie_mkv(movie_list) and sab_nzo_id:
                 # If we have a sample or other file, the second rar is also needed..
-                if len(movie_no_sample_list) != len(in_rar_file_list):
+                if len(in_rar_file_list) > 1:
                     second_rar = utils.find_rar(file_list, 0)
                     iscanceled = get_rar(folder, sab_nzo_id, second_rar)
                 last_rar = utils.find_rar(file_list, -1)
