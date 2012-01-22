@@ -4,7 +4,7 @@ import xbmc
 from xml.dom.minidom import parse, parseString
 
 class Sabnzbd:
-    def __init__ (self, ip, port, apikey, username = None, password = None):
+    def __init__ (self, ip, port, apikey, username = None, password = None, category = None):
         self.ip = ip
         self.port = port
         self.apikey = apikey
@@ -16,10 +16,15 @@ class Sabnzbd:
             authhandler = urllib2.HTTPBasicAuthHandler(password_manager)
             opener = urllib2.build_opener(authhandler)
             urllib2.install_opener(opener)
+        self.category = category
     
     
-    def addurl(self, nzb, nzbname):
+    def addurl(self, nzb, nzbname, category = None):
         url = self.baseurl + "&mode=addurl&name=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(nzbname)
+        if category:
+            url = url + "&cat=" + category
+        elif self.category:
+            url = url + "&cat=" + self.category
         responseMessage = self._sabResponse(url)
         return responseMessage
 
@@ -272,6 +277,17 @@ class Sabnzbd:
             return None
         response.close()
         return
+
+    def category_list(self):
+        url = self.baseurl + "&mode=get_config&section=categories&output=xml"
+        doc = _load_xml(url)
+        category_list = []
+        if doc:
+            if doc.getElementsByTagName("category"):
+                for category in doc.getElementsByTagName("category"):
+                    category = get_node_value(category, "name")
+                    category_list.append(category)
+        return category_list
 
 def get_node_value(parent, name, ns=""):
     if ns:

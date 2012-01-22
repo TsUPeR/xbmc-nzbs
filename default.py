@@ -53,7 +53,8 @@ NUMBER = [25,50,75,100][int(__settings__.getSetting("num"))]
 
 SABNZBD = sabnzbd.Sabnzbd(__settings__.getSetting("sabnzbd_ip"),
         __settings__.getSetting("sabnzbd_port"),__settings__.getSetting("sabnzbd_key"),
-        __settings__.getSetting("sabnzbd_user"), __settings__.getSetting("sabnzbd_pass"))
+        __settings__.getSetting("sabnzbd_user"), __settings__.getSetting("sabnzbd_pass"),
+        __settings__.getSetting("sabnzbd_cat"))
 INCOMPLETE_FOLDER = __settings__.getSetting("sabnzbd_incomplete")
 AUTO_PLAY = (__settings__.getSetting("auto_play").lower() == "true")
 
@@ -202,7 +203,8 @@ def is_nzb_home(params):
     progressDialog = xbmcgui.DialogProgress()
     iscanceled = False
     if not os.path.exists(folder):
-        addurl = SABNZBD.addurl(nzb, nzbname)
+        category = get_category()
+        addurl = SABNZBD.addurl(nzb, nzbname, category)
         # TODO
         # Start a meta_data_fetch thread and download covers, fanart and nfo
         # to the incomplete folder
@@ -567,7 +569,8 @@ def download(params):
     get = params.get
     nzb = urllib.unquote_plus(get("nzb"))
     nzbname = urllib.unquote_plus(get("nzbname"))
-    addurl = SABNZBD.addurl(nzb, nzbname)
+    category = get_category(ask = True)
+    addurl = SABNZBD.addurl(nzb, nzbname, category)
     progressDialog = xbmcgui.DialogProgress()
     progressDialog.create('NZBS', 'Sending request to SABnzbd')
     if "ok" in addurl:
@@ -579,6 +582,23 @@ def download(params):
         time.sleep(2)
     progressDialog.close()
     return
+
+def get_category(ask = False):
+    if __settings__.getSetting("sabnzbd_cat_ask").lower() == "true":
+        ask = True
+    if ask:
+        dialog = xbmcgui.Dialog()
+        category_list = SABNZBD.category_list()
+        category_list.remove('*')
+        category_list.insert(0, 'Default')
+        ret = dialog.select('Select SABnzbd category', category_list)
+        if ret == 0:
+            category = None
+        else:
+            category = category_list[ret]
+        return category
+    else:
+        return None
 
 def repair(params):
     get = params.get
