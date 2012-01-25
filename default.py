@@ -730,6 +730,8 @@ if (__name__ == "__main__" ):
         if get("mode")== MODE_INCOMPLETE_LIST:
             list_incomplete(params)
         if get("mode")== MODE_JSONRPC:
+            dialog = xbmcgui.Dialog()
+            ok = dialog.ok('NZBS', 'Start streaming', get("nzbname"))
             if is_nzb_home(params):
                 nzbname = urllib.unquote_plus(get("nzbname"))
                 pre_play(nzbname, MODE_JSONRPC)
