@@ -697,11 +697,10 @@ def unikeyboard(default, message):
 
 if (__name__ == "__main__" ):
     HANDLE = int(sys.argv[1])
-    if not (__settings__.getSetting("firstrun") and __settings__.getSetting("sabnzbd_ip") and
-        __settings__.getSetting("sabnzbd_port") and __settings__.getSetting("sabnzbd_key") and 
-        __settings__.getSetting("sabnzbd_incomplete")):
+    if not (__settings__.getSetting("firstrun")):
         __settings__.openSettings()
-        __settings__.setSetting("firstrun", '1')
+        if utils.pass_setup_test(SABNZBD.setup_streaming(), __settings__.getSetting("sabnzbd_incomplete")):
+            __settings__.setSetting("firstrun", '1')
     if (not sys.argv[2]):
         if __settings__.getSetting("nzbs_enable").lower() == "true":
             nzbs(None)

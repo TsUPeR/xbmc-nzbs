@@ -289,6 +289,45 @@ class Sabnzbd:
                     category_list.append(category)
         return category_list
 
+    def misc_settings_dict(self):
+        url = self.baseurl + "&mode=get_config&section=misc&output=xml"
+        doc = _load_xml(url)
+        settings_dict = dict()
+        if doc:
+            if doc.getElementsByTagName("misc"):
+                for misc in doc.getElementsByTagName("misc")[0].childNodes:
+                    try:
+                        settings_dict[misc.tagName] = misc.firstChild.data
+                    except:
+                        pass
+        return settings_dict
+
+    def setup_streaming(self):
+        # 1. test the connection
+        # 2. check allow_streaming
+        # 3. set allow streaming if missing
+        url = self.baseurl + "&mode=version&output=xml"
+        try:
+            req = urllib2.Request(url)
+            response = urllib2.urlopen(req)
+        except:
+            xbmc.log("plugin.video.nzbs: unable to conncet to SABnzbd: " + url)
+            return "ip"
+        xml = response.read()
+        response.close()
+        url = self.baseurl + "&mode=get_config&section=misc&keyword=allow_streaming&output=xml"
+        doc = _load_xml(url)
+        if doc.getElementsByTagName("result"):
+            return "apikey"
+        allow_streaming = "0"
+        if doc.getElementsByTagName("misc"):
+            allow_streaming = get_node_value(doc.getElementsByTagName("misc")[0], "allow_streaming")
+        if not allow_streaming == "1":
+            url = self.baseurl + "&mode=set_config&section=misc&keyword=allow_streaming&value=1"
+            _load_xml(url)
+            return "restart"
+        return "ok"
+
 def get_node_value(parent, name, ns=""):
     if ns:
         return parent.getElementsByTagNameNS(ns, name)[0].childNodes[0].data.encode('utf-8')

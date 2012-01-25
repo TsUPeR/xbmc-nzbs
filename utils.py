@@ -28,6 +28,7 @@ import os
 import htmlentitydefs
 import urllib
 import xbmc
+import xbmcgui
 
 import rarfile
 
@@ -180,3 +181,27 @@ def descape_entity(m, defs=htmlentitydefs.entitydefs):
 def descape(string):
     pattern = re.compile(RE_HTML)
     return pattern.sub(descape_entity, string)
+
+def pass_setup_test(result, incomplete):
+    pass_test = True
+    if result == "ip":
+        error = "Wrong ip-number or port"
+    if result == "apikey":
+        error = "Wrong API key"
+    if result == "restart":
+        error = "Please restart SABnzbd, allow_streaming"
+    if not result == "ok":
+        xbmcgui.Dialog().ok('NZBS - SABnzbd error:', error)
+        pass_test = False
+    filename = ['plugin.video.nzbs.test.rar']
+    try:
+        write_fake(filename, incomplete)
+    except:
+        pass_test = False
+        xbmcgui.Dialog().ok('NZBS - failed to write test file', 'in incomplete folder')
+    try:
+        remove_fake(filename, incomplete)
+    except:
+        pass_test = False
+        xbmcgui.Dialog().ok('NZBS - failed to remove test file', 'in incomplete folder')
+    return pass_test
