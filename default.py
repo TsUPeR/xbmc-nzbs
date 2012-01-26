@@ -36,7 +36,6 @@ import xbmcgui
 import xbmcplugin
 
 from xml.dom.minidom import parse, parseString
-from threading import Thread
 
 import sabnzbd
 import utils
@@ -695,10 +694,6 @@ def unikeyboard(default, message):
     else:
         return ""
 
-def jsonrpc_trick():
-    xbmc.executebuiltin('Notification("NZBS","Starting streaming")')
-    return
-
 if (__name__ == "__main__" ):
     HANDLE = int(sys.argv[1])
     if not (__settings__.getSetting("firstrun")):
@@ -733,8 +728,7 @@ if (__name__ == "__main__" ):
         if get("mode")== MODE_INCOMPLETE_LIST:
             list_incomplete(params)
         if get("mode")== MODE_JSONRPC:
-            t = Thread(target=jsonrpc_trick, args=())
-            t.start()
+            xbmc.executebuiltin('Notification("NZBS","Starting streaming")')
             time.sleep(2)
             if is_nzb_home(params):
                 nzbname = urllib.unquote_plus(get("nzbname"))
