@@ -695,6 +695,10 @@ def unikeyboard(default, message):
     else:
         return ""
 
+def jsonrpc_trick():
+    xbmc.executebuiltin('Notification("NZBS","Starting streaming")')
+    return
+
 if (__name__ == "__main__" ):
     HANDLE = int(sys.argv[1])
     if not (__settings__.getSetting("firstrun")):
@@ -729,8 +733,9 @@ if (__name__ == "__main__" ):
         if get("mode")== MODE_INCOMPLETE_LIST:
             list_incomplete(params)
         if get("mode")== MODE_JSONRPC:
-            dialog = xbmcgui.Dialog()
-            ok = dialog.ok('NZBS', 'Start streaming', get("nzbname"))
+            t = Thread(target=jsonrpc_trick, args=())
+            t.start()
+            time.sleep(2)
             if is_nzb_home(params):
                 nzbname = urllib.unquote_plus(get("nzbname"))
                 pre_play(nzbname, MODE_JSONRPC)
