@@ -36,6 +36,7 @@ import xbmcgui
 import xbmcplugin
 
 from xml.dom.minidom import parse, parseString
+from threading import Thread
 
 import sabnzbd
 import utils
