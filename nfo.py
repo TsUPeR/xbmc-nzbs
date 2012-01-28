@@ -143,15 +143,18 @@ class NfoLabels:
             f.close()
         # Thumb and fanart
         thumbnail_dest = os.path.join(self.nfo_path, 'folder.jpg')
+        cached_fanart = xbmc.getCacheThumbName(self.fanart).replace('.tbn', '')
+        cached_fanart = "special://profile/Thumbnails/" + cached_fanart[0] + "/" +\
+                        cached_fanart + ".jpg"
         try:
             shutil.copy(xbmc.translatePath(self.thumbnail), thumbnail_dest)
         except:
             xbmc.log("plugin.video.nzb failed to write: " +  thumbnail_dest)
         fanart_dest = os.path.join(self.nfo_path, 'fanart.jpg')
         try:
-            shutil.copy(xbmc.translatePath(self.fanart), fanart_dest)
+            shutil.copy(xbmc.translatePath(cached_fanart), fanart_dest)
         except:
-            xbmc.log("plugin.video.nzb failed to write: " +  fanart_dest)
+            xbmc.log("plugin.video.nzb failed to write: " +  fanart_dest + " from: " + xbmc.translatePath(cached_fanart))
 
 class ReadNfoLabels:
     def __init__(self, nfo_path):
