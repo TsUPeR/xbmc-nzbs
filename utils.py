@@ -194,9 +194,9 @@ def pass_setup_test(result, incomplete):
         xbmcgui.Dialog().ok('NZBS - SABnzbd error:', error)
         pass_test = False
     filename = ['plugin.video.nzbs.test.rar']
-if not incomplete:
-        pass_test = False
-        xbmcgui.Dialog().ok('NZBS', 'No incomplete folder configured')
+    if not incomplete:
+            pass_test = False
+            xbmcgui.Dialog().ok('NZBS', 'No incomplete folder configured')
     try:
         write_fake(filename, incomplete)
     except:
@@ -208,3 +208,11 @@ if not incomplete:
         pass_test = False
         xbmcgui.Dialog().ok('NZBS - failed to remove test file', 'in incomplete folder')
     return pass_test
+
+def short_string(input):
+    chars = len(input)
+    if chars < 54:
+        return input
+    else:
+        output = input[0:35] + "...  ..." + input[(chars-11):(chars)]
+        return output
