@@ -149,12 +149,12 @@ class NfoLabels:
         try:
             shutil.copy(xbmc.translatePath(self.thumbnail), thumbnail_dest)
         except:
-            xbmc.log("plugin.program.pneumatic failed to write: " +  thumbnail_dest)
+            xbmc.log("plugin.video.nzbs failed to write: " +  thumbnail_dest)
         fanart_dest = os.path.join(self.nfo_path, 'fanart.jpg')
         try:
             shutil.copy(xbmc.translatePath(cached_fanart), fanart_dest)
         except:
-            xbmc.log("plugin.program.pneumatic failed to write: " +  fanart_dest + " from: " + xbmc.translatePath(cached_fanart))
+            xbmc.log("plugin.video.nzbs failed to write: " +  fanart_dest + " from: " + xbmc.translatePath(cached_fanart))
 
 class ReadNfoLabels:
     def __init__(self, nfo_path):
@@ -169,7 +169,7 @@ class ReadNfoLabels:
             f = open(filename, 'r')
             out = parseString(f.read())
         except:
-            xbmc.log("plugin.program.pneumatics could not open: " + self.nfo_path + "*.nfo")
+            xbmc.log("plugin.video.nzbs could not open: " + self.nfo_path + "*.nfo")
             out = None
         if out:
             self.info_labels = self._get_info_labels(out)
