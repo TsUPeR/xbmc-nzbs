@@ -1,5 +1,5 @@
 """
- Copyright (c) 2010 Popeye
+ Copyright (c) 2010, 2011, 2012 Popeye
 
  Permission is hereby granted, free of charge, to any person
  obtaining a copy of this software and associated documentation
@@ -162,7 +162,6 @@ def list_feed_nzbs(feedUrl):
             nzb = "&nzb=" + urllib.quote_plus(nzb) + "&nzbname=" + urllib.quote_plus(info_labels['title'])
             mode = MODE_LIST
             add_posts(info_labels, nzb, mode, thumb)
-        xbmcplugin.setContent(HANDLE, 'movies')
     else:
         if state == "site":
             xbmc.executebuiltin('Notification("NZBS","Site down")')
@@ -205,9 +204,6 @@ def is_nzb_home(params):
     if not os.path.exists(folder):
         category = get_category()
         addurl = SABNZBD.addurl(nzb, nzbname, category)
-        # TODO
-        # Start a meta_data_fetch thread and download covers, fanart and nfo
-        # to the incomplete folder
         progressDialog.create('NZBS', 'Sending request to SABnzbd')
         if "ok" in addurl:
             progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download')
@@ -252,9 +248,7 @@ def is_nzb_home(params):
         switch = SABNZBD.switch(0,nzbname, '')
         if not "ok" in switch:
             xbmc.log(switch)
-            progressDialog.create('NZBS', 'Failed to prioritize the nzb!')
-            time.sleep(2)
-            progressDialog.close()
+            xbmc.executebuiltin('Notification("NZBS","Failed to prioritize the nzb!")')
         # TODO make sure there is also a NZB in the queue
         return True
 
@@ -373,7 +367,8 @@ def playlist_item(play_list, rar_file_list, folder, sab_nzo_id, sab_nzo_id_histo
         cm.append(("Delete" , "XBMC.RunPlugin(%s)" % (cm_url_delete)))
         item.addContextMenuItems(cm, replaceItems=True)
         xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=url, listitem=item, isFolder=isfolder)
-    xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+    xbmcplugin.setContent(HANDLE, 'movies')
+    xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
     return 
     
 def get_rar(folder, sab_nzo_id, some_rar):
@@ -507,11 +502,7 @@ def play_video(params):
         # if the item is in the queue we remove the temp files
         utils.remove_fake(file_list, folder)
     else:
-        # TODO Notification
-        progressDialog = xbmcgui.DialogProgress()
-        progressDialog.create('NZBS', 'File deleted')
-        time.sleep(1)
-        progressDialog.close()
+        xbmc.executebuiltin('Notification("NZBS","File deleted")')
         time.sleep(1)
         xbmc.executebuiltin("Action(ParentDir)")
     return
@@ -650,6 +641,7 @@ def incomplete():
             info = nfo.ReadNfoLabels(os.path.join(INCOMPLETE_FOLDER, row[0]))
             add_posts(info.info_labels, url, MODE_INCOMPLETE_LIST, info.thumbnail, info.fanart)
     xbmcplugin.setContent(HANDLE, 'movies')
+    xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
     return
 
 def get_node_value(parent, name, ns=""):
@@ -705,6 +697,8 @@ if (__name__ == "__main__" ):
         if __settings__.getSetting("nzbs_enable").lower() == "true":
             nzbs(None)
         add_posts({'title':'Incomplete'}, '', MODE_INCOMPLETE)
+        xbmcplugin.setContent(HANDLE, 'movies')
+        xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
     else:
         params = utils.get_parameters(sys.argv[2])
         get = params.get
@@ -724,17 +718,18 @@ if (__name__ == "__main__" ):
             repair(params)
         if get("mode")== MODE_NZBS:
             nzbs(params)
+            xbmcplugin.setContent(HANDLE, 'movies')
+            xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
         if get("mode")== MODE_INCOMPLETE:
             incomplete()
         if get("mode")== MODE_INCOMPLETE_LIST:
             list_incomplete(params)
         if get("mode")== MODE_JSONRPC:
-            xbmc.executebuiltin('Notification("NZBS","Starting streaming")')
+            xbmc.executebuiltin('Dialog.Close(all, true)')
             time.sleep(2)
             if is_nzb_home(params):
                 nzbname = urllib.unquote_plus(get("nzbname"))
                 pre_play(nzbname, MODE_JSONRPC)
 
-xbmcplugin.endOfDirectory(HANDLE, succeeded=True, cacheToDisc=True)
 
 
