@@ -41,6 +41,7 @@ from threading import Thread
 import sabnzbd
 import utils
 import nfo
+import xbmcplayer
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.nzbs')
 __language__ = __settings__.getLocalizedString
@@ -57,6 +58,9 @@ SABNZBD = sabnzbd.Sabnzbd(__settings__.getSetting("sabnzbd_ip"),
         __settings__.getSetting("sabnzbd_cat"))
 INCOMPLETE_FOLDER = __settings__.getSetting("sabnzbd_incomplete")
 AUTO_PLAY = (__settings__.getSetting("auto_play").lower() == "true")
+AUTO_DELETE = (__settings__.getSetting("post_process").lower() == "delete")
+AUTO_REPAIR = (__settings__.getSetting("post_process").lower() == "repair")
+ASK_AT_END = (__settings__.getSetting("post_process").lower() == "ask")
 
 MODE_LIST = "list"
 MODE_MOVIE_LIST = "movie_list"
@@ -485,26 +489,92 @@ def play_video(params):
         item.setPath(raruri)
         item.setProperty("IsPlayable", "true")
         xbmcplugin.setContent(HANDLE, 'movies')
-        time.sleep(1)
+        wait = 0
         if mode == MODE_AUTO_PLAY:
-            xbmc.Player( xbmc.PLAYER_CORE_DVDPLAYER ).play( raruri, item )
+            player = xbmcplayer.XBMCPlayer(xbmc.PLAYER_CORE_DVDPLAYER)
+            player.play( raruri, item )
+            removed_fake = False
+            while player.is_active:
+                player.sleep(100)
+                wait+= 1
+                if player.is_playing and not removed_fake:
+                    utils.remove_fake(file_list, folder)
+                    removed_fake = True
+                if player.is_stopped:
+                    xbmc.executebuiltin('Notification("NZBS","Stopped")')
+                    the_end(folder, player.is_stopped)
+                    player.is_active = False
+                elif player.is_ended:
+                    xbmc.executebuiltin('Notification("NZBS","Ended")')
+                    the_end(folder)
+                    player.is_active = False
+                elif wait >= 1000 and not player.isPlayingVideo():
+                    xbmc.executebuiltin('Notification("NZBS","Error playing file!")')
+                    break
         else:
             xbmcplugin.setResolvedUrl(handle=HANDLE, succeeded=True, listitem=item)
-        wait = 0
-        time.sleep(3)
-        while (wait <= 10):
-            time.sleep(1)
-            wait+= 1
-            if xbmc.Player().isPlayingVideo():
-                break
-        # if the item is in the queue we remove the temp files
-        utils.remove_fake(file_list, folder)
+            time.sleep(3)
+            while (wait <= 10):
+                time.sleep(1)
+                wait+= 1
+                if xbmc.Player().isPlayingVideo():
+                    break
+            utils.remove_fake(file_list, folder)
     else:
         xbmc.executebuiltin('Notification("NZBS","File deleted")')
         time.sleep(1)
         xbmc.executebuiltin("Action(ParentDir)")
     return
 
+def the_end(folder, is_stopped = False):
+    nzbname = os.path.basename(folder)
+    sab_nzo_id_history = SABNZBD.nzo_id_history(nzbname)
+    sab_nzo_id = SABNZBD.nzo_id(nzbname)
+    params = dict()
+    params['nzoidhistory'] = sab_nzo_id_history
+    params['nzoid'] = sab_nzo_id
+    params['incomplete'] = True
+    params['folder'] = folder
+    params['end'] = True
+    if sab_nzo_id_history is None:
+        the_end_dialog(params,progressing=True, is_stopped=is_stopped)
+    elif is_stopped:
+        the_end_dialog(params)
+    elif AUTO_REPAIR:
+        repair(params)
+    elif AUTO_DELETE:
+        delete(params)
+    elif ASK_AT_END:
+        the_end_dialog(params)
+    return
+
+def the_end_dialog(params, **kwargs):
+    dialog = xbmcgui.Dialog()
+    if 'is_stopped' in kwargs:
+        is_stopped = kwargs['is_stopped']
+    else:
+        is_stopped = False
+    if 'progressing' in kwargs:
+        progressing = kwargs['progressing']
+    else:
+        progressing = False
+    if progressing:
+        options = ['Delete', 'Just download']
+        if is_stopped:
+            heading = 'Downloading, what do you want to do?'
+        else:
+            heading = 'Still downloading, what do you want to do?'
+    else:
+        heading = 'Download finished, what do you want to do?'
+        options = ['Delete', 'Repair']
+    ret = dialog.select(heading, options)
+    if ret == 0:
+        delete(params)
+    if ret == 1 and progressing:
+        return
+    elif ret == 1 and not progressing:
+        repair(params)
+    return
 
 def delete(params):
     get = params.get
@@ -516,6 +586,7 @@ def delete(params):
     folder = get("folder")
     folder = urllib.unquote_plus(folder)
     incomplete = get("incomplete")
+    end = get("end")
     delete_all = get("delete_all")
     if delete_all:
         xbmc.executebuiltin('Notification("NZBS","Deleting all incomplete")')
@@ -547,8 +618,10 @@ def delete(params):
             xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
     else:
         xbmc.executebuiltin('Notification("NZBS","Deleting failed")')
-    time.sleep(2)
-    if incomplete:
+    if end:
+        return
+    elif incomplete:
+        time.sleep(2)
         xbmc.executebuiltin("Container.Refresh")
     else:
         xbmc.executebuiltin("Action(ParentDir)")
@@ -592,18 +665,15 @@ def get_category(ask = False):
 def repair(params):
     get = params.get
     sab_nzo_id_history = get("nzoidhistory")
+    end = get("end")
     repair_ = SABNZBD.repair('',sab_nzo_id_history)
-    progressDialog = xbmcgui.DialogProgress()
-    progressDialog.create('NZBS', 'Sending request to SABnzbd')
     if "ok" in repair_:
-        progressDialog.update(100, 'Repair', 'Succeeded')
+        xbmc.executebuiltin('Notification("NZBS","Repair succeeded")')
     else:
         xbmc.log(repair_)
-        progressDialog.update(0, 'Repair failed!')
-    time.sleep(2)
-    progressDialog.close()
-    time.sleep(1)
-    xbmc.executebuiltin("Action(ParentDir)")
+        xbmc.executebuiltin('Notification("NZBS","Repair succeeded")')
+    if not end:
+        xbmc.executebuiltin("Action(ParentDir)")
     return
 
 def incomplete():
