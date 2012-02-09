@@ -490,34 +490,27 @@ def play_video(params):
         item.setProperty("IsPlayable", "true")
         xbmcplugin.setContent(HANDLE, 'movies')
         wait = 0
+        player = xbmcplayer.XBMCPlayer(xbmc.PLAYER_CORE_DVDPLAYER)
         if mode == MODE_AUTO_PLAY:
-            player = xbmcplayer.XBMCPlayer(xbmc.PLAYER_CORE_DVDPLAYER)
             player.play( raruri, item )
-            removed_fake = False
-            while player.is_active:
-                player.sleep(100)
-                wait+= 1
-                if player.is_playing and not removed_fake:
-                    utils.remove_fake(file_list, folder)
-                    removed_fake = True
-                if player.is_stopped:
-                    the_end(folder, player.is_stopped)
-                    player.is_active = False
-                elif player.is_ended:
-                    the_end(folder)
-                    player.is_active = False
-                elif wait >= 1000 and not player.isPlayingVideo():
-                    xbmc.executebuiltin('Notification("NZBS","Error playing file!")')
-                    break
         else:
             xbmcplugin.setResolvedUrl(handle=HANDLE, succeeded=True, listitem=item)
-            time.sleep(3)
-            while (wait <= 10):
-                time.sleep(1)
-                wait+= 1
-                if xbmc.Player().isPlayingVideo():
-                    break
-            utils.remove_fake(file_list, folder)
+        removed_fake = False
+        while player.is_active:
+            player.sleep(100)
+            wait+= 1
+            if player.is_playing and not removed_fake:
+                utils.remove_fake(file_list, folder)
+                removed_fake = True
+            if player.is_stopped:
+                the_end(folder, player.is_stopped)
+                player.is_active = False
+            elif player.is_ended:
+                the_end(folder)
+                player.is_active = False
+            elif wait >= 1000 and not player.isPlayingVideo():
+                xbmc.executebuiltin('Notification("NZBS","Error playing file!")')
+                break
     else:
         xbmc.executebuiltin('Notification("NZBS","File deleted")')
         time.sleep(1)
