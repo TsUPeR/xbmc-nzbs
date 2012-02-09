@@ -501,11 +501,9 @@ def play_video(params):
                     utils.remove_fake(file_list, folder)
                     removed_fake = True
                 if player.is_stopped:
-                    xbmc.executebuiltin('Notification("NZBS","Stopped")')
                     the_end(folder, player.is_stopped)
                     player.is_active = False
                 elif player.is_ended:
-                    xbmc.executebuiltin('Notification("NZBS","Ended")')
                     the_end(folder)
                     player.is_active = False
                 elif wait >= 1000 and not player.isPlayingVideo():
@@ -798,6 +796,8 @@ if (__name__ == "__main__" ):
             if is_nzb_home(params):
                 nzbname = urllib.unquote_plus(get("nzbname"))
                 pre_play(nzbname, MODE_JSONRPC)
+
+
 
 
 
