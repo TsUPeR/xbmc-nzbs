@@ -497,7 +497,7 @@ def play_video(params):
             xbmcplugin.setResolvedUrl(handle=HANDLE, succeeded=True, listitem=item)
         removed_fake = False
         while player.is_active:
-            player.sleep(100)
+            player.sleep(500)
             wait+= 1
             if player.is_playing and not removed_fake:
                 utils.remove_fake(file_list, folder)
