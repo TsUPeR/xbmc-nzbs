@@ -212,7 +212,7 @@ def is_nzb_home(params):
         if "ok" in addurl:
             progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download')
             seconds = 0
-            while not SABNZBD.nzo_id(nzbname):
+            while not (SABNZBD.nzo_id(nzbname) and os.path.exists(folder)):
                 label = str(seconds) + " seconds"
                 progressDialog.update(0, 'Request to SABnzbd succeeded', 'waiting for nzb download', label)
                 if progressDialog.iscanceled():
