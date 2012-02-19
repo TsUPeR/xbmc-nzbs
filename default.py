@@ -511,6 +511,8 @@ def play_video(params):
             elif wait >= 1000 and not player.isPlayingVideo():
                 xbmc.executebuiltin('Notification("NZBS","Error playing file!")')
                 break
+        if not removed_fake:
+            utils.remove_fake(file_list, folder)
     else:
         xbmc.executebuiltin('Notification("NZBS","File deleted")')
         time.sleep(1)
